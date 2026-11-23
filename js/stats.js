@@ -121,9 +121,8 @@ export function orderEvents(session) {
   return [...head, ...flatMatches(session).flatMap((x) => by[x.id] || [])];
 }
 
-/** 新事件預設插入點:目前正在打(第一場未完成)的那一場之後;都完成就在最後一場之後 */
+/** 新事件預設插入點:已完成(有比分)的最後一場之後;還沒有任何完成的場次 → 第一場之前(null) */
 export function defaultAfterId(session) {
-  const flat = flatMatches(session);
-  if (!flat.length) return null;
-  return (flat.find((x) => !isComplete(x.m)) || flat[flat.length - 1]).id;
+  const done = flatMatches(session).filter((x) => isComplete(x.m));
+  return done.length ? done[done.length - 1].id : null;
 }

@@ -59,7 +59,7 @@ test('開門紅 / 壓軸王 / 過山車', () => {
   assert.ok(t.rollercoaster.items.length >= 1);
 });
 
-test('事件時間軸:插在指定場次之後、舊資料放最後、預設在進行中的那場之後', () => {
+test('事件時間軸:插在指定場次之後、舊資料放最後、預設在已完成的最後一場之後', () => {
   const a = m(['A', 'B'], ['C', 'D'], 21, 10); a.id = 'm1';
   const b = m(['A', 'C'], ['B', 'D'], 21, 19); b.id = 'm2';
   const c = m(['A', 'D'], ['B', 'C'], null, null); c.id = 'm3';
@@ -68,7 +68,9 @@ test('事件時間軸:插在指定場次之後、舊資料放最後、預設在�
     { id: 'e3', text: 'old' }, { id: 'e4', text: 'gone', afterMatchId: 'zzz' }, { id: 'e5', text: 'z', afterMatchId: 'm1' } ] };
   assert.deepEqual(orderEvents(ss).map((e) => e.id), ['e2', 'e5', 'e1', 'e3', 'e4']);
   assert.equal(groupEvents(ss).by.m3.length, 2);
-  assert.equal(defaultAfterId(ss), 'm3');
+  assert.equal(defaultAfterId(ss), 'm2'); // 已完成的最後一場
   c.scoreA = 21; c.scoreB = 1;
-  assert.equal(defaultAfterId(ss), 'm3'); // 全部完成 → 最後一場
+  assert.equal(defaultAfterId(ss), 'm3');
+  a.scoreA = a.scoreB = b.scoreA = b.scoreB = c.scoreA = c.scoreB = null;
+  assert.equal(defaultAfterId(ss), null); // 都沒完成 → 最前面
 });
