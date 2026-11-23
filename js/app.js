@@ -14,7 +14,7 @@ let sortKey = 'wins';
 let openRounds = new Set(); // 使用者手動展開過的輪
 let lastRoute = '';
 
-const EVENT_TEMPLATES = ['抽筋了,下場休息', '挑釁對手結果自己馬上失誤', '發球直接下網', '殺球打到自己的腳', '球拍飛出去了', '接球接到飛出場外', '用盡全力卻揮空拍', '大喊「我來!」然後沒接到'];
+const EVENT_TEMPLATES = ['抽筋了,下場休息', '挑釁對手結果自己馬上失誤', '殺球打到自己的腳', '球拍飛出去了', '絆到腳跌倒'];
 
 /* ---------- helpers ---------- */
 function toast(msg) {
@@ -77,13 +77,7 @@ function viewNew() {
   const common = roster(db).filter((n) => !d.players.includes(n));
   return `
     <div class="top"><button class="icon-btn" data-act="home" aria-label="返回">←</button><div class="tt"><h1>新增對戰</h1></div></div>
-    <div class="panel" style="margin-top:8px">
-      <div class="row">
-        <label class="field"><span>日期</span><input type="date" data-f="date" value="${esc(d.date)}"></label>
-        <label class="field"><span>開始時間</span><input type="time" data-f="start" value="${esc(d.start)}"></label>
-      </div>
-    </div>
-    <div class="sec"><h2>參加人員</h2><span>${d.players.length} 人(至少 4 人)</span></div>
+    <div class="sec" style="margin-top:8px"><h2>參加人員</h2><span>${d.players.length} 人(至少 4 人)</span></div>
     <div class="panel">
       <div class="row" style="margin-bottom:12px">
         <input type="text" id="pname" data-f="input" placeholder="輸入名字" maxlength="10" enterkeyhint="done" value="${esc(d.input)}" style="flex:1">
@@ -233,7 +227,7 @@ function render() {
   const m = hash.match(/^#\/s\/([^/]+)(\/summary)?$/);
   let html;
   if (hash === '#/new') {
-    draft ||= { date: todayStr(), start: nowHM(), players: [], input: '' };
+    draft ||= { players: [], input: '' };
     html = viewNew();
   } else if (m && getSession(m[1])) {
     const s = getSession(m[1]);
@@ -273,7 +267,7 @@ function patchLive(s) {
 /* ---------- actions ---------- */
 const actions = {
   home: () => go('#/'),
-  new: () => { draft = { date: todayStr(), start: nowHM(), players: [], input: '' }; go('#/new'); },
+  new: () => { draft = { players: [], input: '' }; go('#/new'); },
   open: (el) => { const s = getSession(el.dataset.id); go(`#/s/${s.id}${s.status === 'finished' ? '/summary' : ''}`); },
   'del-session': (el, e) => {
     e.stopPropagation();
@@ -305,7 +299,7 @@ const actions = {
   start: () => {
     if (draft.players.length < 4) return;
     const s = {
-      id: uid(), date: draft.date || todayStr(), startTime: draft.start || nowHM(), endTime: null,
+      id: uid(), date: todayStr(), startTime: nowHM(), endTime: null,
       players: [...draft.players], rounds: [], events: [], status: 'playing',
     };
     s.rounds.push(generateRound(s.players, s.rounds));
