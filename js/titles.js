@@ -197,7 +197,5 @@ export function computeTitles(session) {
   const st = computeStats(session);
   const act = st.players.filter((p) => p.games > 0);
   const ctx = { session, st, act };
-  const MAX = 3; // 並列太多時只列前幾名,避免結算頁過長
-  const cap = (items) => (items.length > MAX ? [...items.slice(0, MAX), { label: `…另有 ${items.length - MAX} 組並列`, note: '' }] : items);
-  return TITLES.map((t) => ({ id: t.id, icon: t.icon, name: t.name, desc: t.desc, items: act.length ? cap(t.calc(ctx)) : [] })).filter((t) => t.items.length);
+  return TITLES.map((t) => ({ id: t.id, icon: t.icon, name: t.name, desc: t.desc, items: act.length ? t.calc(ctx) : [] })).filter((t) => t.items.length);
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeStats, isComplete } from '../js/stats.js';
+import { computeStats, isComplete, groupEvents, orderEvents, defaultAfterId } from '../js/stats.js';
 import { computeTitles, TITLES } from '../js/titles.js';
 
 const m = (A, B, a, b) => ({ id: Math.random(), teamA: A, teamB: B, scoreA: a, scoreB: b });
@@ -57,4 +57,18 @@ test('開門紅 / 壓軸王 / 過山車', () => {
   assert.ok(t.opener.items[0].label.includes('A'));
   assert.ok(t.closer.items[0].label.includes('B'));
   assert.ok(t.rollercoaster.items.length >= 1);
+});
+
+test('事件時間軸:插在指定場次之後、舊資料放最後、預設在進行中的那場之後', () => {
+  const a = m(['A', 'B'], ['C', 'D'], 21, 10); a.id = 'm1';
+  const b = m(['A', 'C'], ['B', 'D'], 21, 19); b.id = 'm2';
+  const c = m(['A', 'D'], ['B', 'C'], null, null); c.id = 'm3';
+  const ss = { players: ['A', 'B', 'C', 'D'], rounds: [{ no: 1, matches: [a, b, c] }], events: [
+    { id: 'e1', text: 'x', afterMatchId: 'm2' }, { id: 'e2', text: 'y', afterMatchId: null },
+    { id: 'e3', text: 'old' }, { id: 'e4', text: 'gone', afterMatchId: 'zzz' }, { id: 'e5', text: 'z', afterMatchId: 'm1' } ] };
+  assert.deepEqual(orderEvents(ss).map((e) => e.id), ['e2', 'e5', 'e1', 'e3', 'e4']);
+  assert.equal(groupEvents(ss).by.m3.length, 2);
+  assert.equal(defaultAfterId(ss), 'm3');
+  c.scoreA = 21; c.scoreB = 1;
+  assert.equal(defaultAfterId(ss), 'm3'); // 全部完成 → 最後一場
 });

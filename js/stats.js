@@ -86,3 +86,44 @@ export function computeStats(session) {
   for (const pr of Object.values(pairs)) pr.winRate = pr.games ? pr.wins / pr.games : 0;
   return { players: list, pairs: Object.values(pairs), matches };
 }
+
+/* ---------- 事件時間軸 ---------- */
+
+/** 依序攤平所有場次 */
+export function flatMatches(session) {
+  const out = [];
+  session.rounds.forEach((r, ri) => r.matches.forEach((m, mi) => out.push({ id: m.id, ri, mi, m })));
+  return out;
+}
+
+/**
+ * 事件的位置 = 插在某一場「之後」(afterMatchId)。
+ * null = 第一場之前;舊資料(undefined)或對應場次已被刪除 → 放到最後一場之後。
+ * 回傳 { head: [], by: { [matchId]: [] } }
+ */
+export function groupEvents(session) {
+  const flat = flatMatches(session);
+  const ids = new Set(flat.map((x) => x.id));
+  const lastId = flat.length ? flat[flat.length - 1].id : null;
+  const head = [];
+  const by = {};
+  for (const e of session.events || []) {
+    if (e.afterMatchId === null || (!flat.length)) head.push(e);
+    else if (e.afterMatchId && ids.has(e.afterMatchId)) (by[e.afterMatchId] ||= []).push(e);
+    else (by[lastId] ||= []).push(e);
+  }
+  return { head, by };
+}
+
+/** 依對戰順序排好的事件清單 */
+export function orderEvents(session) {
+  const { head, by } = groupEvents(session);
+  return [...head, ...flatMatches(session).flatMap((x) => by[x.id] || [])];
+}
+
+/** 新事件預設插入點:目前正在打(第一場未完成)的那一場之後;都完成就在最後一場之後 */
+export function defaultAfterId(session) {
+  const flat = flatMatches(session);
+  if (!flat.length) return null;
+  return (flat.find((x) => !isComplete(x.m)) || flat[flat.length - 1]).id;
+}
