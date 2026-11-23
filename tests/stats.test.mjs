@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { computeStats, isComplete } from '../js/stats.js';
-import { computeTitles } from '../js/titles.js';
+import { computeTitles, TITLES } from '../js/titles.js';
 
 const m = (A, B, a, b) => ({ id: Math.random(), teamA: A, teamB: B, scoreA: a, scoreB: b });
 const session = (matches, players = ['A', 'B', 'C', 'D', 'E']) => ({
@@ -45,4 +45,16 @@ test('稱號:MVP / 連勝終結者 / 大屠殺', () => {
 
 test('沒有完成的場次 → 沒有稱號', () => {
   assert.deepEqual(computeTitles(session([m(['A', 'B'], ['C', 'D'], null, null)])), []);
+});
+
+test('至少 30 個稱號,且 id 不重複', () => {
+  assert.ok(TITLES.length >= 30);
+  assert.equal(new Set(TITLES.map((t) => t.id)).size, TITLES.length);
+});
+
+test('開門紅 / 壓軸王 / 過山車', () => {
+  const t = Object.fromEntries(computeTitles(S).map((x) => [x.id, x]));
+  assert.ok(t.opener.items[0].label.includes('A'));
+  assert.ok(t.closer.items[0].label.includes('B'));
+  assert.ok(t.rollercoaster.items.length >= 1);
 });

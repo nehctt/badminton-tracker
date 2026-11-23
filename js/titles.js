@@ -152,6 +152,38 @@ export const TITLES = [
       return w.map((x) => ({ label: x.name, note: `${x.n} 則事件` }));
     },
   },
+  {
+    id: 'rollercoaster', icon: '🎢', name: '過山車', desc: '最大勝分與最大敗分落差最大(至少 3 場,贏過也輸過)',
+    calc: ({ act }) => {
+      const swing = (p) => Math.max(...p.margins) - Math.min(...p.margins);
+      return players(best(act.filter((p) => p.games >= 3 && p.wins && p.losses), [swing]),
+        (p) => `最大贏 ${Math.max(...p.margins)} 分 / 最大輸 ${-Math.min(...p.margins)} 分`);
+    },
+  },
+  {
+    id: 'steady', icon: '🗿', name: '穩如泰山', desc: '每場分差最穩定(至少 3 場)',
+    calc: ({ act }) => {
+      const sd = (p) => {
+        const mean = p.margins.reduce((a, b) => a + b, 0) / p.margins.length;
+        return Math.sqrt(p.margins.reduce((a, b) => a + (b - mean) ** 2, 0) / p.margins.length);
+      };
+      return players(bestUnlessAllTie(act.filter((p) => p.games >= 3), [(p) => -sd(p)]), (p) => `分差波動 ${f1(sd(p))}`);
+    },
+  },
+  {
+    id: 'opener', icon: '🎊', name: '開門紅', desc: '拿下今天第一場比賽(至少打滿 3 場)',
+    calc: ({ st }) => {
+      const m = st.matches[0];
+      return st.matches.length >= 3 ? [{ label: m.winners.join(' ＆ '), note: `${m.wScore}:${m.lScore} 拿下開幕戰` }] : [];
+    },
+  },
+  {
+    id: 'closer', icon: '🎬', name: '壓軸王', desc: '拿下今天最後一場比賽(至少打滿 3 場)',
+    calc: ({ st }) => {
+      const m = st.matches[st.matches.length - 1];
+      return st.matches.length >= 3 ? [{ label: m.winners.join(' ＆ '), note: `${m.wScore}:${m.lScore} 收下壓軸戰` }] : [];
+    },
+  },
 ];
 
 function halves(p) {

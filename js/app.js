@@ -27,6 +27,13 @@ function toast(msg) {
 const go = (hash) => { location.hash = hash; };
 const dateLabel = (s) => `${s.date.replace(/-/g, '/')}(${weekday(s.date)})`;
 const doneCount = (s) => s.rounds.reduce((n, r) => n + r.matches.filter(isComplete).length, 0);
+function settledLabel(s) {
+  if (s.endedAt) {
+    const d = new Date(s.endedAt);
+    return `${todayStr(d).replace(/-/g, '/')} ${nowHM(d)}`;
+  }
+  return s.endTime ? `${s.date.replace(/-/g, '/')} ${s.endTime}` : '';
+}
 const pct = (n) => Math.round(n * 100) + '%';
 
 function download(name, text, type = 'application/json') {
@@ -122,7 +129,7 @@ function viewPlay(s) {
         </div></details>
     </div>
     ${s.rounds.map((r, ri) => {
-      const open = ri === last || openRounds.has(r.id);
+      const open = ri === last || !roundDone(r) || openRounds.has(r.id);
       return `<details class="round" data-rid="${r.id}" ${open ? 'open' : ''}>
         <summary><span>第 ${r.no} 輪</span><span class="prog" data-prog="${ri}">${r.matches.filter(isComplete).length}/${r.matches.length} 場完成 ${roundDone(r) ? '✓' : ''}</span></summary>
         ${r.matches.map((m, mi) => matchHTML(s, r, ri, m, mi, true)).join('')}
@@ -160,13 +167,15 @@ function viewSummary(s) {
   const th = (key, label) => `<th class="${sortKey === key ? 'on' : ''}" data-act="sort" data-k="${key}">${label}${sortKey === key ? '▾' : ''}</th>`;
   return `
     <div class="top"><button class="icon-btn" data-act="home" aria-label="回首頁">←</button><h1>今日結算</h1></div>
+    <div id="shot" class="shot">
     <div class="summary-hero">
       <h1>🏸 ${esc(dateLabel(s))}</h1>
       <div class="stat-row">
         <div><b>${s.players.length}</b><span>人</span></div>
         <div><b>${st.matches.length}</b><span>場</span></div>
-        <div><b>${dur == null ? '–' : Math.round(dur / 6) / 10 + 'h'}</b><span>${esc(s.startTime)}${s.endTime ? '–' + esc(s.endTime) : ''}</span></div>
+        <div><b>${dur == null ? '–' : esc(fmtDuration(dur))}</b><span>時長</span></div>
       </div>
+      <div class="muted" style="margin-top:10px">🕖 ${esc(s.startTime)} 開始${s.endTime ? ` · ${esc(settledLabel(s))} 結算` : ''}</div>
     </div>
     <div class="card"><h2>🏅 今日稱號</h2>
       ${titles.length ? titles.map((t) => `
@@ -186,8 +195,13 @@ function viewSummary(s) {
       <tbody>${rows.map((p) => `<tr><td>${esc(p.name)}</td><td>${p.games}</td><td>${p.wins}</td><td>${p.losses}</td>
         <td>${p.games ? pct(p.winRate) : '–'}<div class="bar-w"><i style="width:${Math.round(p.winRate * 100)}%"></i></div></td></tr>`).join('')}</tbody></table>
     </div>
-    <div class="footer-actions" style="margin-bottom:16px">
-      <button class="btn" data-act="copy">📋 複製結算文字</button>
+    <div class="shot-foot">🏸 羽球紀錄</div>
+    </div>
+    <div class="footer-actions" style="margin-bottom:12px">
+      <button class="btn primary" data-act="save-img">🖼 儲存成圖片</button>
+      <button class="btn" data-act="copy">📋 複製文字</button>
+    </div>
+    <div class="footer-actions" style="margin-top:0;margin-bottom:16px">
       ${s.status === 'finished' ? '<button class="btn" data-act="reopen">繼續記錄</button>' : ''}
     </div>
     <button class="btn primary block" data-act="home">回首頁</button>`;
@@ -195,7 +209,7 @@ function viewSummary(s) {
 
 function summaryText(s) {
   const st = computeStats(s);
-  const lines = [`🏸 ${dateLabel(s)} 羽球結算`, `${s.players.length} 人 · ${st.matches.length} 場`, '', '【今日稱號】'];
+  const lines = [`🏸 ${dateLabel(s)} 羽球結算`, `${s.players.length} 人 · ${st.matches.length} 場`, `${s.startTime} 開始 · ${settledLabel(s)} 結算`, '', '【今日稱號】'];
   for (const t of computeTitles(s)) lines.push(`${t.icon} ${t.name}:${t.items.map((i) => `${i.label}(${i.note})`).join('、')}`);
   lines.push('', '【特殊事件】');
   for (const e of s.events || []) lines.push(`・${(e.players || []).filter((p) => !e.text.includes(p)).join('、')}${e.text}`);
@@ -241,11 +255,8 @@ function patchLive(s) {
     if (p) p.textContent = `${r.matches.filter(isComplete).length}/${r.matches.length} 場完成 ${roundDone(r) ? '✓' : ''}`;
   });
   const last = s.rounds[s.rounds.length - 1];
-  const ok = !last || roundDone(last);
-  const btn = document.getElementById('nextBtn');
-  if (btn) btn.disabled = !ok;
   const hint = document.getElementById('hint');
-  if (hint) hint.textContent = ok ? '' : '填完本輪所有比分後,即可生成下一輪';
+  if (hint) hint.textContent = last && !roundDone(last) ? '本輪還有場次沒填完,仍可先生成下一輪' : '';
 }
 
 /* ---------- actions ---------- */
@@ -295,8 +306,6 @@ const actions = {
   pick: null, // 由 change 事件處理
   'next-round': () => {
     const s = getSession(sid());
-    const last = s.rounds[s.rounds.length - 1];
-    if (last && !roundDone(last)) return;
     s.rounds.push(generateRound(s.players, s.rounds));
     persist(); render(); window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     toast(`已生成第 ${s.rounds.length} 輪`);
@@ -326,7 +335,7 @@ const actions = {
     const s = getSession(sid());
     const open = s.rounds.reduce((n, r) => n + r.matches.filter((m) => !isComplete(m)).length, 0);
     if (open && !confirm(`還有 ${open} 場沒填完整比分,這些場次不會計入。確定結算?`)) return;
-    s.status = 'finished'; s.endTime = nowHM();
+    s.status = 'finished'; s.endTime = nowHM(); s.endedAt = new Date().toISOString();
     persist(); go(`#/s/${s.id}/summary`);
   },
 
@@ -360,8 +369,37 @@ const actions = {
     try { await navigator.clipboard.writeText(text); toast('已複製,可貼到群組'); }
     catch { prompt('請手動複製:', text); }
   },
-  reopen: () => { const s = getSession(sid()); s.status = 'playing'; s.endTime = null; persist(); go(`#/s/${s.id}`); },
+  'save-img': async (el) => {
+    const s = getSession(sid());
+    el.disabled = true; const label = el.textContent; el.textContent = '產生中…';
+    try {
+      if (!window.html2canvas) await loadScript('js/vendor/html2canvas.min.js');
+      const node = document.getElementById('shot');
+      const bg = getComputedStyle(document.body).backgroundColor;
+      const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true, windowWidth: 520 });
+      const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+      const file = new File([blob], `badminton-${s.date}.png`, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: '羽球結算' }); return; }
+        catch (err) { if (err.name === 'AbortError') return; }
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      toast('圖片已儲存');
+    } catch (err) { alert('產生圖片失敗:' + err.message); }
+    finally { el.disabled = false; el.textContent = label; }
+  },
+  reopen: () => { const s = getSession(sid()); s.status = 'playing'; s.endTime = null; s.endedAt = null; persist(); go(`#/s/${s.id}`); },
 };
+
+function loadScript(src) {
+  return new Promise((ok, fail) => {
+    const t = document.createElement('script');
+    t.src = src; t.onload = ok; t.onerror = () => fail(new Error('無法載入 ' + src));
+    document.head.appendChild(t);
+  });
+}
 
 const sid = () => (location.hash.match(/^#\/s\/([^/]+)/) || [])[1];
 

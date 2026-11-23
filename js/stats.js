@@ -19,7 +19,7 @@ const blank = (name) => ({
   name, games: 0, wins: 0, losses: 0, pf: 0, pa: 0,
   curWin: 0, curLose: 0, maxWin: 0, maxLose: 0,
   enders: 0, rests: 0, closeGames: 0, closeWins: 0, closeLosses: 0,
-  results: [], partners: new Set(),
+  results: [], margins: [], partners: new Set(),
 });
 
 export function computeStats(session) {
@@ -48,6 +48,7 @@ export function computeStats(session) {
         p.pf += pf;
         p.pa += pa;
         p.results.push(won ? 'W' : 'L');
+        p.margins.push(won ? margin : -margin);
         if (won) {
           p.wins++; p.curWin++; p.curLose = 0;
           p.maxWin = Math.max(p.maxWin, p.curWin);
