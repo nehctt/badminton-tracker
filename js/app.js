@@ -190,10 +190,10 @@ function viewSummary(s) {
 
       <div class="sec"><h2>今日稱號</h2><span>${titles.length} 項</span></div>
       ${titles.length ? `<div class="tlist">${titles.map((t) => `
-        <div class="tcard"><div class="ic">${t.icon}</div><div class="bd">
-          <div class="nm">${esc(t.name)}</div>
+        <div class="tcard">
+          <div class="hd"><span class="ic">${t.icon}</span><span class="nm">${esc(t.name)}</span></div>
           ${t.items.map((i) => `<div class="who"><span>${esc(i.label)}</span><i>${esc(i.note)}</i></div>`).join('')}
-        </div></div>`).join('')}</div>` : '<div class="panel empty">還沒有完成的比賽,沒有稱號可以頒發</div>'}
+        </div>`).join('')}</div>` : '<div class="panel empty">還沒有完成的比賽,沒有稱號可以頒發</div>'}
 
       <div class="sec"><h2>今日特殊事件</h2><span>${events.length} 則</span></div>
       ${events.length ? `<div class="evlist">${events.map((e) => `<div class="e"><span class="tm">${esc(e.time)}</span><span>${evText(e)}</span></div>`).join('')}</div>` : '<div class="panel empty">今天風平浪靜,沒有特殊事件</div>'}
