@@ -3,6 +3,7 @@ import { load, save, roster, exportJSON, importJSON } from './store.js';
 import { generateRound, suggestMatch, resting } from './scheduler.js';
 import { isComplete, hasDuplicate, computeStats, flatMatches, groupEvents, orderEvents, defaultAfterId } from './stats.js';
 import { computeTitles } from './titles.js';
+import { PETS, MOODS, petHTML, moodFromResults, moodFromRate, pickPetId } from './pets.js';
 
 let db = load();
 const app = document.getElementById('app');
@@ -72,6 +73,10 @@ function viewHome() {
     <p class="muted" style="text-align:center;margin-top:16px">資料只存在這支手機的瀏覽器,記得偶爾匯出備份</p>`;
 }
 
+function petGrid(selectedId, act) {
+  return `<div class="pet-grid">${PETS.map((p) => `<button type="button" class="pet-opt ${p.id === selectedId ? 'on' : ''}" data-act="${act}" data-id="${p.id}">${petHTML(p.id, p.id === selectedId ? 3 : 2, 38, p.name)}<span>${p.name}</span></button>`).join('')}</div>`;
+}
+
 function viewNew() {
   const d = draft;
   const common = roster(db).filter((n) => !d.players.includes(n));
@@ -79,20 +84,25 @@ function viewNew() {
     <div class="top"><button class="icon-btn" data-act="home" aria-label="返回">←</button><div class="tt"><h1>新增對戰</h1></div></div>
     <div class="sec" style="margin-top:8px"><h2>參加人員</h2><span>${d.players.length} 人(至少 4 人)</span></div>
     <div class="panel">
-      <div class="row" style="margin-bottom:12px">
+      <div class="row">
         <input type="text" id="pname" data-f="input" placeholder="輸入名字" maxlength="10" enterkeyhint="done" value="${esc(d.input)}" style="flex:1">
         <button class="btn" data-act="add-player" style="flex:none">新增</button>
       </div>
-      <div class="chips">${d.players.map((p) => `<span class="chip on" data-act="rm-player" data-n="${esc(p)}">${esc(p)} ✕</span>`).join('') || '<span class="muted">尚未加入任何人</span>'}</div>
+      <div class="lbl">替這位選一隻寵物</div>
+      ${petGrid(d.pet, 'pick-pet')}
+      ${d.players.length ? '<div class="lbl" style="margin-top:16px">已加入(點寵物可更換)</div>' : ''}
+      <div class="chips" style="${d.players.length ? '' : 'margin-top:12px'}">${d.players.map((p) => `<span class="chip on static"><span class="chip-pet" data-act="change-pet" data-n="${esc(p)}">${petHTML(d.pets[p], 2, 26, '更換寵物')}</span>${esc(p)}<span class="x" data-act="rm-player" data-n="${esc(p)}" aria-label="移除">✕</span></span>`).join('') || '<span class="muted">尚未加入任何人</span>'}</div>
     </div>
     ${common.length ? `<div class="sec"><h2>常用名單</h2><span>點一下加入</span></div><div class="chips">${common.map((p) => `<span class="chip" data-act="add-roster" data-n="${esc(p)}">＋ ${esc(p)}</span>`).join('')}</div>` : ''}
     <div style="height:24px"></div>
-    <button class="btn primary block" data-act="start" ${d.players.length < 4 ? 'disabled' : ''}>開始對戰並生成第一輪</button>`;
+    <button class="btn primary block" data-act="start" ${d.players.length < 4 ? 'disabled' : ''}>開始對戰並生成第一輪</button>
+    <dialog id="petDlg"><h3>換一隻寵物</h3>${petGrid(null, 'set-pet')}<div class="actions"><button class="btn" data-act="pet-cancel">取消</button></div></dialog>`;
 }
 
 function matchHTML(s, r, ri, m, mi) {
-  const sel = (team, i) => `<select data-act="pick" data-r="${ri}" data-m="${mi}" data-t="${team}" data-i="${i}" aria-label="選手">
-      ${s.players.map((p) => `<option value="${esc(p)}" ${m[team][i] === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>`;
+  const slot = s.pets ? '<span class="pet-slot" data-k=""></span>' : '';
+  const sel = (team, i) => `<div class="pcell">${slot}<select data-act="pick" data-r="${ri}" data-m="${mi}" data-t="${team}" data-i="${i}" aria-label="選手">
+      ${s.players.map((p) => `<option value="${esc(p)}" ${m[team][i] === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>`;
   const score = (side, v) => `<input class="score" type="number" inputmode="numeric" min="0" max="99" placeholder="–" aria-label="${side === 'A' ? '上' : '下'}方比分" data-act="score" data-r="${ri}" data-m="${mi}" data-side="${side}" value="${v ?? ''}">`;
   const done = isComplete(m);
   const rest = resting(s.players, m);
@@ -119,7 +129,7 @@ function viewPlay(s) {
   return `
     <div class="top">
       <button class="icon-btn" data-act="home" aria-label="返回">←</button>
-      <div class="tt"><h1>${esc(dateLabel(s))}</h1><span class="sub">${esc(s.startTime)} 開始 · ${s.players.length} 人 · 已完成 ${doneCount(s)} 場</span></div>
+      <div class="tt"><h1>${esc(dateLabel(s))}</h1><span class="sub" id="subline">${esc(s.startTime)} 開始 · ${s.players.length} 人 · 已完成 ${doneCount(s)} 場</span></div>
       <details class="menu"><summary class="icon-btn" aria-label="選單">⋯</summary>
         <div class="pop">
           <button data-act="add-member">＋ 新增成員</button>
@@ -194,8 +204,9 @@ function viewSummary(s) {
 
       <div class="sec"><h2>今日戰績</h2><span>點標題可排序</span></div>
       <table><thead><tr><th>名字</th>${th('games', '場數')}${th('wins', '勝')}${th('losses', '敗')}${th('winRate', '勝率')}</tr></thead>
-      <tbody>${rows.map((p) => `<tr><td>${esc(p.name)}</td><td>${p.games}</td><td>${p.wins}</td><td>${p.losses}</td>
+      <tbody>${rows.map((p) => `<tr><td><div class="nm-cell">${s.pets && s.pets[p.name] ? petHTML(s.pets[p.name], moodFromRate(p.winRate, p.games), 34, `${p.name}・${MOODS[moodFromRate(p.winRate, p.games)]}`) : ''}<span>${esc(p.name)}</span></div></td><td>${p.games}</td><td>${p.wins}</td><td>${p.losses}</td>
         <td>${p.games ? pct(p.winRate) : '–'}<div class="bar-w"><i style="width:${Math.round(p.winRate * 100)}%"></i></div></td></tr>`).join('')}</tbody></table>
+      ${s.pets ? '<div class="muted" style="margin-top:8px;text-align:center;font-size:12px">寵物心情依今日勝率:80%↑ 超快樂 · 60% 快樂 · 40% 正常 · 20% 難過 · 其餘 超難過</div>' : ''}
       <div class="shot-foot">🏸 羽球紀錄</div>
     </div>
     <div class="footer-actions" style="margin-bottom:10px">
@@ -227,7 +238,7 @@ function render() {
   const m = hash.match(/^#\/s\/([^/]+)(\/summary)?$/);
   let html;
   if (hash === '#/new') {
-    draft ||= { players: [], input: '' };
+    draft ||= newDraft();
     html = viewNew();
   } else if (m && getSession(m[1])) {
     const s = getSession(m[1]);
@@ -259,15 +270,68 @@ function patchLive(s) {
       p.classList.toggle('done', roundDone(r));
     }
   });
+  patchPets(s);
+  const subline = document.getElementById('subline');
+  if (subline) subline.textContent = `${s.startTime} 開始 · ${s.players.length} 人 · 已完成 ${doneCount(s)} 場`;
   const last = s.rounds[s.rounds.length - 1];
   const hint = document.getElementById('hint');
   if (hint) hint.textContent = last && !roundDone(last) ? '本輪還有場次沒填完,仍可先生成下一輪' : '';
 }
 
+/* ---------- 寵物 ---------- */
+const moodMemo = {}; // `${sessionId}:${name}` → 上次顯示的心情(用來判斷要不要播「變開心/變難過」特效)
+
+/** 目前進行中的場次 = 第一場還沒登記比分的 */
+function currentMatch(s) {
+  const x = flatMatches(s).find((f) => !isComplete(f.m));
+  return x ? x.m : null;
+}
+
+/** 每位選手目前的心情(依到目前為止的勝負) */
+function liveMoods(s) {
+  const out = {};
+  for (const p of computeStats(s).players) out[p.name] = moodFromResults(p.results);
+  return out;
+}
+
+/** 只在「最新一場尚未登記比分」的場次,於名字旁顯示寵物 */
+function patchPets(s) {
+  if (!s.pets) return;
+  const cur = currentMatch(s);
+  const moods = liveMoods(s);
+  s.rounds.forEach((r, ri) => r.matches.forEach((m, mi) => {
+    const el = app.querySelector(`.match[data-r="${ri}"][data-m="${mi}"]`);
+    if (!el) return;
+    el.querySelectorAll('.pcell').forEach((cell) => {
+      const sel = cell.querySelector('select');
+      const slot = cell.querySelector('.pet-slot');
+      if (!sel || !slot) return;
+      const name = m[sel.dataset.t][+sel.dataset.i];
+      const pet = s.pets[name];
+      const mood = moods[name] ?? 2;
+      const want = cur && cur.id === m.id && pet ? `${pet}|${mood}` : '';
+      if (slot.dataset.k === want) return;
+      slot.dataset.k = want;
+      slot.className = 'pet-slot';
+      slot.innerHTML = want ? petHTML(pet, mood, 34, `${name}・${MOODS[mood]}`) : '';
+      if (want) {
+        const key = `${s.id}:${name}`;
+        const prev = moodMemo[key];
+        moodMemo[key] = mood;
+        if (prev !== undefined && prev !== mood) {
+          const cls = mood > prev ? 'fx-up' : 'fx-down';
+          slot.classList.add(cls);
+          setTimeout(() => slot.classList.remove(cls), 1600);
+        }
+      }
+    });
+  }));
+}
+
 /* ---------- actions ---------- */
 const actions = {
   home: () => go('#/'),
-  new: () => { draft = { players: [], input: '' }; go('#/new'); },
+  new: () => { draft = newDraft(); go('#/new'); },
   open: (el) => { const s = getSession(el.dataset.id); go(`#/s/${s.id}${s.status === 'finished' ? '/summary' : ''}`); },
   'del-session': (el, e) => {
     e.stopPropagation();
@@ -294,14 +358,24 @@ const actions = {
 
   // 新增表單
   'add-player': () => addPlayer(draft.input),
-  'add-roster': (el) => addPlayer(el.dataset.n),
-  'rm-player': (el) => { draft.players = draft.players.filter((p) => p !== el.dataset.n); render(); },
+  'add-roster': (el) => addPlayer(el.dataset.n, true),
+  'rm-player': (el) => {
+    draft.players = draft.players.filter((p) => p !== el.dataset.n);
+    delete draft.pets[el.dataset.n];
+    render();
+  },
+  'pick-pet': (el) => { draft.pet = el.dataset.id; render(); },
+  'change-pet': (el) => { petTarget = el.dataset.n; document.getElementById('petDlg').showModal(); },
+  'set-pet': (el) => { if (petTarget) draft.pets[petTarget] = el.dataset.id; petTarget = null; document.getElementById('petDlg').close(); render(); },
+  'pet-cancel': () => document.getElementById('petDlg').close(),
   start: () => {
     if (draft.players.length < 4) return;
     const s = {
       id: uid(), date: todayStr(), startTime: nowHM(), endTime: null,
-      players: [...draft.players], rounds: [], events: [], status: 'playing',
+      players: [...draft.players], rounds: [], events: [], status: 'playing', pets: {},
     };
+    for (const n of s.players) s.pets[n] = draft.pets[n] || pickPetId(Object.values(s.pets));
+    db.petMap = { ...(db.petMap || {}), ...s.pets }; // 記住每個名字上次的寵物
     s.rounds.push(generateRound(s.players, s.rounds));
     db.sessions.push(s);
     persist(); draft = null; go(`#/s/${s.id}`);
@@ -338,7 +412,9 @@ const actions = {
     const s = getSession(sid());
     if (!name) return;
     if (s.players.includes(name)) return toast('名字已存在');
-    s.players.push(name); persist(); render(); toast(`已加入 ${name}`);
+    s.players.push(name);
+    if (s.pets) s.pets[name] = (db.petMap || {})[name] && !Object.values(s.pets).includes(db.petMap[name]) ? db.petMap[name] : pickPetId(Object.values(s.pets));
+    persist(); render(); toast(`已加入 ${name}`);
   },
   finish: () => {
     const s = getSession(sid());
@@ -386,7 +462,8 @@ const actions = {
       if (!window.html2canvas) await loadScript('js/vendor/html2canvas.min.js');
       const node = document.getElementById('shot');
       const bg = getComputedStyle(document.body).backgroundColor;
-      const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true, windowWidth: 520 });
+      const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true, windowWidth: 520,
+        onclone: (doc) => { const st = doc.createElement('style'); st.textContent = '.pet,.pet *{animation:none!important}.shot{padding:18px 16px 10px!important}'; doc.head.appendChild(st); } });
       const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
       const file = new File([blob], `badminton-${s.date}.png`, { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
@@ -413,11 +490,19 @@ function loadScript(src) {
 
 const sid = () => (location.hash.match(/^#\/s\/([^/]+)/) || [])[1];
 
-function addPlayer(raw) {
+let petTarget = null;
+const newDraft = () => ({ players: [], pets: {}, pet: pickPetId([]), input: '' });
+
+function addPlayer(raw, fromRoster = false) {
   const name = (raw || '').trim();
   if (!name) return;
   if (draft.players.includes(name)) { toast('名字重複了'); return; }
+  const used = Object.values(draft.pets);
+  const remembered = (db.petMap || {})[name];
   draft.players.push(name);
+  // 常用名單:沿用上次的寵物(沒被占用的話);手動輸入:用目前選的
+  draft.pets[name] = fromRoster && remembered && !used.includes(remembered) ? remembered : draft.pet;
+  draft.pet = pickPetId(Object.values(draft.pets)); // 自動換下一隻還沒用過的
   draft.input = '';
   render();
   document.getElementById('pname')?.focus();
