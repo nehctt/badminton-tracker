@@ -140,55 +140,85 @@ export function moodFromRate(winRate, games) {
 
 /* ---------- 五官(統一畫法,位置由 anchor 決定) ---------- */
 
+const STAR = 'M0,-6 L1.7,-1.7 L6,0 L1.7,1.7 L0,6 L-1.7,1.7 L-6,0 L-1.7,-1.7 Z';
+const HEART = 'M0,4 C-8,-2 -4,-8 0,-3 C4,-8 8,-2 0,4 Z';
+const at = (x, y, inner, rot = 0) => `<g transform="translate(${x} ${y}) rotate(${rot})">${inner}</g>`;
+
 function face(mood, a, eyeInk) {
   const e = eyeInk || INK;
   const hi = e === INK ? '#ffffff' : INK; // 眼睛高光
   const L = -13, R = 13;
-  const dot = (x, r = 3.6) => `<circle cx="${x}" cy="0" r="${r}" fill="${e}"/><circle cx="${x + 1.2}" cy="-1.3" r="1.2" fill="${hi}"/>`;
+  const dot = (x, r = 3.6, y = 0) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${e}"/><circle cx="${x + r * 0.35}" cy="${y - r * 0.38}" r="${r * 0.33}" fill="${hi}"/>`;
   const line = (d, w = 2.2, color = e) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const mouthLine = (d) => line(d, 2.2, INK);
+  const open = (w, depth, tongue) => `<path d="M${-w},7 Q0,${7 + depth} ${w},7 Z" fill="#7a2230" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>${tongue ? `<ellipse cx="0" cy="${7 + depth * 0.6}" rx="${w * 0.45}" ry="${w * 0.27}" fill="#ff8fa3"/>` : ''}`;
   let g = '';
   switch (mood) {
-    case 0: // 超難過:閉眼大哭、眉毛下垂、烏雲線、淚水直流
-      g += line(`M${L - 4},-3.5 L${L + 3.5},0 L${L - 4},3.5 M${R + 4},-3.5 L${R - 3.5},0 L${R + 4},3.5`, 2.4);
-      g += line(`M${L - 4.5},-7.5 L${L + 4.5},-11.5 M${R + 4.5},-7.5 L${R - 4.5},-11.5`, 2);
-      g += line('M-8,-17 v6 M0,-19 v8 M8,-17 v6', 2, '#6b7fd7');
-      g += `<path d="M${L},4 L${L},22 M${R},4 L${R},22" stroke="#8fd0ff" stroke-width="3" stroke-linecap="round" opacity=".7"/>`;
-      g += `<ellipse class="tear" cx="${L}" cy="6" rx="2.2" ry="3.2" fill="#5ab4ff"/><ellipse class="tear t2" cx="${R}" cy="6" rx="2.2" ry="3.2" fill="#5ab4ff"/>`;
-      g += `<path d="M-7,15 Q0,5 7,15 Z" fill="#7a2230" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`;
+    case 0: // 超難過:閉眼嚎啕大哭、眉毛垮下、烏雲線、淚水瀑布
+      g += line(`M${L - 4},-3.5 L${L + 3.5},0 L${L - 4},3.5 M${R + 4},-3.5 L${R - 3.5},0 L${R + 4},3.5`, 2.6);
+      g += line(`M${L - 5},-6.5 L${L + 5},-12 M${R + 5},-6.5 L${R - 5},-12`, 2.2);
+      g += line('M-9,-18 v7 M0,-20 v9 M9,-18 v7', 2.2, '#6b7fd7');
+      g += `<path d="M${L},4 L${L - 1},30 M${R},4 L${R + 1},30" stroke="#8fd0ff" stroke-width="4.5" stroke-linecap="round" opacity=".75"/>`;
+      g += `<ellipse class="tear" cx="${L}" cy="6" rx="2.6" ry="3.8" fill="#5ab4ff"/><ellipse class="tear t2" cx="${R}" cy="6" rx="2.6" ry="3.8" fill="#5ab4ff"/>`;
+      g += `<path d="M-9,18 Q0,2 9,18 Z" fill="#7a2230" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><ellipse cx="0" cy="16" rx="4" ry="2" fill="#c8506a"/>`;
       break;
-    case 1: // 難過:低頭看地、八字眉、小嘴下彎、一滴淚
-      g += `<g>${dot(L)}${dot(R)}</g>`;
-      g += line(`M${L - 4.5},-8 L${L + 4.5},-10.5 M${R + 4.5},-8 L${R - 4.5},-10.5`, 2);
-      g += mouthLine('M-5,13 Q0,8.5 5,13');
-      g += `<ellipse class="tear slow" cx="${L - 1}" cy="6" rx="1.9" ry="2.9" fill="#5ab4ff"/>`;
+    case 1: // 難過:低垂的眼睛、八字眉、顫抖的嘴、冒汗
+      g += `<g>${dot(L, 3.6, 1.5)}${dot(R, 3.6, 1.5)}</g>`;
+      g += line(`M${L - 5},-6.5 L${L + 5},-11 M${R + 5},-6.5 L${R - 5},-11`, 2.2);
+      g += mouthLine('M-7,14 Q-3.5,9.5 0,13 Q3.5,9.5 7,14');
+      g += `<ellipse class="tear slow" cx="${L - 1}" cy="6" rx="2.1" ry="3.2" fill="#5ab4ff"/>`;
       break;
     case 2: // 正常:圓眼會眨眼、小小微笑
       g += `<g class="blink">${dot(L)}${dot(R)}</g>`;
       g += mouthLine('M-4,10 Q0,12.5 4,10');
       break;
-    case 3: // 快樂:大眼睛、笑嘴、腮紅
-      g += `<g class="blink">${dot(L, 4)}${dot(R, 4)}</g>`;
-      g += `<circle cx="-20" cy="8" r="3.8" fill="#ff8fa3" opacity=".6"/><circle cx="20" cy="8" r="3.8" fill="#ff8fa3" opacity=".6"/>`;
-      g += mouthLine('M-6.5,9 Q0,16.5 6.5,9');
+    case 3: // 快樂:閃亮大眼、張嘴笑、腮紅
+      g += `<g class="blink"><circle cx="${L}" cy="0" r="5.2" fill="${e}"/><circle cx="${L + 1.8}" cy="-2" r="2" fill="${hi}"/><circle cx="${L - 1.6}" cy="1.8" r="1" fill="${hi}"/>`;
+      g += `<circle cx="${R}" cy="0" r="5.2" fill="${e}"/><circle cx="${R + 1.8}" cy="-2" r="2" fill="${hi}"/><circle cx="${R - 1.6}" cy="1.8" r="1" fill="${hi}"/></g>`;
+      g += `<circle cx="-21" cy="8" r="4.6" fill="#ff7893" opacity=".75"/><circle cx="21" cy="8" r="4.6" fill="#ff7893" opacity=".75"/>`;
+      g += open(8, 15, true);
       break;
-    default: // 超快樂:笑瞇眼、張大嘴、紅通通
-      g += line(`M${L - 4.2},2 Q${L},-4.8 ${L + 4.2},2 M${R - 4.2},2 Q${R},-4.8 ${R + 4.2},2`, 2.6);
-      g += `<circle cx="-20" cy="8" r="4.2" fill="#ff7893" opacity=".8"/><circle cx="20" cy="8" r="4.2" fill="#ff7893" opacity=".8"/>`;
-      g += `<path d="M-8.5,7.5 Q0,25 8.5,7.5 Z" fill="#7a2230" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`;
-      g += `<ellipse cx="0" cy="15.5" rx="4" ry="2.3" fill="#ff8fa3"/>`;
+    default: // 超快樂:星星眼、大嘴吐舌、超紅腮紅
+      for (const x of [L, R]) g += at(x, 0, `<path class="eyestar" d="${STAR}" transform="scale(1.7)" fill="#ffd23f" stroke="${INK}" stroke-width="0.9" stroke-linejoin="round"/>`);
+      g += `<circle cx="-22" cy="9" r="5.6" fill="#ff5f84" opacity=".85"/><circle cx="22" cy="9" r="5.6" fill="#ff5f84" opacity=".85"/>`;
+      g += open(12, 26, true);
   }
   return `<g transform="translate(${a.x} ${a.y}) scale(${a.s})">${g}</g>`;
 }
 
-const STAR = 'M0,-6 L1.7,-1.7 L6,0 L1.7,1.7 L0,6 L-1.7,1.7 L-6,0 L-1.7,-1.7 Z';
-const sparkles = () => [[10, 16, 0], [91, 22, 0.4], [86, 78, 0.8], [12, 72, 0.2]]
-  .map(([x, y, d]) => `<g transform="translate(${x} ${y})"><path class="spark" d="${STAR}" fill="#ffd23f" style="animation-delay:${d}s"/></g>`).join('');
+/* ---------- 全身特效(畫在身體底下 / 上面) ---------- */
+
+const burst = (list, cls) => list.map(([x, y, d, color, shape, size = 1]) =>
+  at(x, y, `<path class="${cls}" d="${shape}" transform="scale(${size})" fill="${color}" style="animation-delay:${d}s"/>`)).join('');
+
+function effects(mood) {
+  let before = '', after = '';
+  if (mood === 0) {
+    before = `<ellipse cx="50" cy="97" rx="36" ry="4.5" fill="#8fd0ff" opacity=".5"/>`;
+    after = `<g class="cloud"><ellipse cx="50" cy="-4" rx="30" ry="9" fill="#7d8aa3"/><circle cx="33" cy="-9" r="9.5" fill="#7d8aa3"/><circle cx="51" cy="-14" r="12" fill="#8a97b0"/><circle cx="68" cy="-8" r="9" fill="#7d8aa3"/></g>`
+      + [[36, 0.0], [50, 0.3], [64, 0.6], [43, 0.45], [57, 0.15]].map(([x, d]) => `<path class="rain" d="M${x},3 l-1.5,7" stroke="#6fb8ff" stroke-width="2.2" stroke-linecap="round" style="animation-delay:${d}s"/>`).join('');
+  } else if (mood === 1) {
+    after = `<path d="M80,30 Q84,38 80,41 Q76,38 80,30 Z" fill="#8fd0ff" stroke="#5ab4ff" stroke-width="1"/>`
+      + [[78, 62, 0, 2.4], [84, 54, 0.8, 3.2], [91, 44, 1.6, 4]].map(([x, y, d, r]) => `<circle class="puff" cx="${x}" cy="${y}" r="${r}" fill="#ffffff" stroke="#b8c4d6" stroke-width="1" style="animation-delay:${d}s"/>`).join('');
+  } else if (mood === 3) {
+    after = burst([[88, 34, 0, '#ff6f91', HEART, 1.1], [12, 44, 0.9, '#ff9ab0', HEART, 0.9]], 'float')
+      + at(90, 62, `<text class="float" font-size="15" font-weight="700" fill="#5b8def" text-anchor="middle" style="animation-delay:.5s">♪</text>`);
+  } else if (mood === 4) {
+    before = `<circle class="aura" cx="50" cy="55" r="58" fill="#ffe27a"/>`;
+    const conf = [[14, 'ff5f84'], [29, '5b8def'], [43, 'ffd23f'], [57, '4cc38a'], [71, 'ff9f43'], [86, 'b57bff'], [22, 'ffd23f'], [78, 'ff5f84']]
+      .map(([x, c], i) => `<rect class="confetti" x="${x}" y="-8" width="5" height="8" fill="#${c}" style="animation-delay:${(i * 0.19).toFixed(2)}s"/>`).join('');
+    after = conf
+      + burst([[8, 18, 0, '#ffd23f', STAR, 1.3], [93, 22, 0.4, '#ffd23f', STAR, 1.5], [88, 80, 0.8, '#ffd23f', STAR, 1.2], [10, 74, 0.2, '#ffd23f', STAR, 1.3], [96, 52, 0.6, '#fff', STAR, 0.9], [4, 48, 1, '#fff', STAR, 0.9]], 'spark')
+      + burst([[84, 38, 0, '#ff5f84', HEART, 1.3], [16, 36, 0.6, '#ff7893', HEART, 1.2], [50, 8, 1.1, '#ff9ab0', HEART, 1]], 'float');
+  }
+  return { before, after };
+}
 
 /** 一隻寵物(內嵌 SVG)。size 為像素;title 供無障礙/提示。 */
 export function petHTML(id, mood, size = 32, title = '') {
   const p = PET_MAP[id] || PETS[0];
   const m = Math.max(0, Math.min(4, mood | 0));
   const t = esc(title);
-  return `<span class="pet m${m}" style="width:${size}px;height:${size}px" role="img" aria-label="${t}" title="${t}"><svg viewBox="0 0 100 100" aria-hidden="true">${p.body}${p.front || ''}${face(m, p.anchor, p.eyeInk)}${m === 4 ? sparkles() : ''}</svg></span>`;
+  const fx = effects(m);
+  return `<span class="pet m${m}" style="width:${size}px;height:${size}px" role="img" aria-label="${t}" title="${t}"><svg viewBox="0 0 100 100" aria-hidden="true">${fx.before}${p.body}${p.front || ''}${face(m, p.anchor, p.eyeInk)}${fx.after}</svg></span>`;
 }
