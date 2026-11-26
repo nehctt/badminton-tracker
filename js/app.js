@@ -170,19 +170,28 @@ function viewPlay(s) {
     </dialog>`;
 }
 
+const SUM_TABS = [
+  { slug: 'titles', label: '稱號與事件', page: '稱號 & 特殊事件' },
+  { slug: 'ranking', label: '戰績排行', page: '戰績排行' },
+  { slug: 'records', label: '對戰紀錄', page: '對戰紀錄' },
+];
+let summaryTab = 0;
+let summaryFor = null;
+
+/** 預設排名:勝場 → 勝率 → 淨勝分 */
+const rankSort = (a, b) => b.wins - a.wins || b.winRate - a.winRate || b.diff - a.diff;
+
 function viewSummary(s) {
+  if (summaryFor !== s.id) { summaryFor = s.id; summaryTab = 0; }
   const st = computeStats(s);
-  const titles = computeTitles(s);
-  const events = orderEvents(s);
   const dur = s.endTime ? minutesBetween(s.startTime, s.endTime) : null;
-  const rows = [...st.players].sort((a, b) => {
-    const k = { wins: [b.wins - a.wins, b.winRate - a.winRate], games: [b.games - a.games, b.winRate - a.winRate], losses: [b.losses - a.losses], winRate: [b.winRate - a.winRate, b.games - a.games] }[sortKey];
-    for (const d of [...k, b.diff - a.diff]) if (d) return d;
-    return 0;
-  });
-  const th = (key, label) => `<th class="${sortKey === key ? 'on' : ''}" data-act="sort" data-k="${key}">${label}${sortKey === key ? ' ▾' : ''}</th>`;
+  const tab = SUM_TABS[summaryTab];
+  const body = [pageTitles, pageRanking, pageRecords][summaryTab](s, st);
   return `
-    <div class="top"><button class="icon-btn" data-act="home" aria-label="回首頁">←</button><div class="tt"><h1>今日結算</h1></div></div>
+    <div class="sticky-head">
+      <div class="top"><button class="icon-btn" data-act="home" aria-label="回首頁">←</button><div class="tt"><h1>今日結算</h1></div></div>
+      <div class="tabs" role="tablist">${SUM_TABS.map((t, i) => `<button class="tab ${i === summaryTab ? 'on' : ''}" role="tab" data-act="tab" data-i="${i}">${t.label}</button>`).join('')}</div>
+    </div>
     <div id="shot" class="shot">
       <h2 class="date-h">🏸 ${esc(dateLabel(s))}</h2>
       <div class="stats">
@@ -191,32 +200,82 @@ function viewSummary(s) {
         <div><b>${dur == null ? '–' : esc(fmtDuration(dur))}</b><span>時長</span></div>
       </div>
       <div class="when">${esc(s.startTime)} 開始${s.endTime ? ` · ${esc(settledLabel(s))} 結算` : ''}</div>
-
-      <div class="sec"><h2>今日稱號</h2><span>${titles.length} 項</span></div>
-      ${titles.length ? `<div class="tlist">${titles.map((t) => `
-        <div class="tcard">
-          <div class="hd"><span class="ic">${t.icon}</span><span class="nm">${esc(t.name)}</span></div>
-          ${t.items.map((i) => `<div class="who"><span>${esc(i.label)}</span><i>${esc(i.note)}</i></div>`).join('')}
-        </div>`).join('')}</div>` : '<div class="panel empty">還沒有完成的比賽,沒有稱號可以頒發</div>'}
-
-      <div class="sec"><h2>今日特殊事件</h2><span>${events.length} 則</span></div>
-      ${events.length ? `<div class="evlist">${events.map((e) => `<div class="e"><span class="tm">${esc(e.time)}</span><span>${evText(e)}</span></div>`).join('')}</div>` : '<div class="panel empty">今天風平浪靜,沒有特殊事件</div>'}
-
-      <div class="sec"><h2>今日戰績</h2><span>點標題可排序</span></div>
-      <table><thead><tr><th>名字</th>${th('games', '場數')}${th('wins', '勝')}${th('losses', '敗')}${th('winRate', '勝率')}</tr></thead>
-      <tbody>${rows.map((p) => `<tr><td><div class="nm-cell">${s.pets && s.pets[p.name] ? petHTML(s.pets[p.name], moodFromRate(p.winRate, p.games), 34, `${p.name}・${MOODS[moodFromRate(p.winRate, p.games)]}`) : ''}<span>${esc(p.name)}</span></div></td><td>${p.games}</td><td>${p.wins}</td><td>${p.losses}</td>
-        <td>${p.games ? pct(p.winRate) : '–'}<div class="bar-w"><i style="width:${Math.round(p.winRate * 100)}%"></i></div></td></tr>`).join('')}</tbody></table>
-      ${s.pets ? '<div class="muted" style="margin-top:8px;text-align:center;font-size:12px">寵物心情依今日勝率:80%↑ 超快樂 · 60% 快樂 · 40% 正常 · 20% 難過 · 其餘 超難過</div>' : ''}
-      <div class="shot-foot">🏸 羽球紀錄</div>
+      <div class="page-tag"><span>${esc(tab.page)}</span></div>
+      ${body}
+      <div class="shot-foot">🏸 羽球紀錄 · ${summaryTab + 1}/${SUM_TABS.length}</div>
     </div>
     <div class="footer-actions" style="margin-bottom:10px">
-      <button class="btn primary" data-act="save-img">🖼 儲存成圖片</button>
+      <button class="btn primary" data-act="save-img">🖼 儲存這一頁</button>
       <button class="btn" data-act="copy">📋 複製文字</button>
     </div>
     <div class="footer-actions" style="margin-top:0">
       ${s.status === 'finished' ? '<button class="btn" data-act="reopen">繼續記錄</button>' : ''}
       <button class="btn" data-act="home">回首頁</button>
     </div>`;
+}
+
+/* 第 1 頁:稱號 & 事件 */
+function pageTitles(s) {
+  const titles = computeTitles(s);
+  const events = orderEvents(s);
+  return `
+    <div class="sec"><h2>今日稱號</h2><span>${titles.length} 項</span></div>
+    ${titles.length ? `<div class="tlist">${titles.map((t) => `
+      <div class="tcard">
+        <div class="hd"><span class="ic">${t.icon}</span><span class="nm">${esc(t.name)}</span></div>
+        ${t.items.map((i) => `<div class="who"><span>${esc(i.label)}</span><i>${esc(i.note)}</i></div>`).join('')}
+      </div>`).join('')}</div>` : '<div class="panel empty">還沒有完成的比賽,沒有稱號可以頒發</div>'}
+    <div class="sec"><h2>今日特殊事件</h2><span>${events.length} 則</span></div>
+    ${events.length ? `<div class="evlist">${events.map((e) => `<div class="e"><span class="tm">${esc(e.time)}</span><span>${evText(e)}</span></div>`).join('')}</div>` : '<div class="panel empty">今天風平浪靜,沒有特殊事件</div>'}`;
+}
+
+/* 第 2 頁:戰績排行 */
+function pageRanking(s, st) {
+  const moodOf = (p) => moodFromRate(p.winRate, p.games);
+  const petOf = (p, size) => (s.pets && s.pets[p.name] ? petHTML(s.pets[p.name], moodOf(p), size, `${p.name}・${MOODS[moodOf(p)]}`) : '');
+  const ranked = st.players.filter((p) => p.games > 0).sort(rankSort);
+  const podium = ranked.length >= 3 ? [[ranked[1], 2], [ranked[0], 1], [ranked[2], 3]] : [];
+  const rows = [...st.players].sort((a, b) => {
+    const k = { wins: [b.wins - a.wins, b.winRate - a.winRate], games: [b.games - a.games, b.winRate - a.winRate], losses: [b.losses - a.losses], winRate: [b.winRate - a.winRate, b.games - a.games] }[sortKey];
+    for (const d of [...k, b.diff - a.diff]) if (d) return d;
+    return 0;
+  });
+  const th = (key, label) => `<th class="${sortKey === key ? 'on' : ''}" data-act="sort" data-k="${key}">${label}${sortKey === key ? ' ▾' : ''}</th>`;
+  return `
+    ${podium.length ? `<div class="podium">${podium.map(([p, n]) => `
+      <div class="pod pod${n}">
+        <div class="pod-pet">${petOf(p, n === 1 ? 68 : 54) || `<span class="pod-medal">${['', '🥇', '🥈', '🥉'][n]}</span>`}</div>
+        <div class="pod-name">${esc(p.name)}</div>
+        <div class="pod-stat">${p.wins} 勝 ${p.losses} 敗</div>
+        <div class="pod-base"><b>${n}</b><span>${pct(p.winRate)}</span></div>
+      </div>`).join('')}</div>` : ''}
+    <div class="sec"><h2>完整戰績</h2><span>點標題可排序</span></div>
+    <table><thead><tr><th>名字</th>${th('games', '場數')}${th('wins', '勝')}${th('losses', '敗')}${th('winRate', '勝率')}</tr></thead>
+    <tbody>${rows.map((p) => `<tr><td><div class="nm-cell">${petOf(p, 34)}<span>${esc(p.name)}</span></div></td><td>${p.games}</td><td>${p.wins}</td><td>${p.losses}</td>
+      <td>${p.games ? pct(p.winRate) : '–'}<div class="bar-w"><i style="width:${Math.round(p.winRate * 100)}%"></i></div></td></tr>`).join('')}</tbody></table>
+    ${s.pets ? '<div class="muted" style="margin-top:8px;text-align:center;font-size:12px">寵物心情依今日勝率:80%↑ 超快樂 · 60% 快樂 · 40% 正常 · 20% 難過 · 其餘 超難過</div>' : ''}`;
+}
+
+/* 第 3 頁:對戰紀錄 */
+function pageRecords(s) {
+  if (!s.rounds.some((r) => r.matches.length)) return '<div class="panel empty">沒有對戰紀錄</div>';
+  return s.rounds.map((r) => {
+    const done = r.matches.filter(isComplete).length;
+    return `
+      <div class="sec"><h2>第 ${r.no} 輪</h2><span>${done} / ${r.matches.length} 場完成</span></div>
+      ${r.matches.map((m, mi) => {
+        const ok = isComplete(m);
+        const aw = ok && m.scoreA > m.scoreB;
+        const bw = ok && m.scoreB > m.scoreA;
+        const rest = resting(s.players, m);
+        const team = (names, score, win) => `<div class="rec-team ${win ? 'win' : ''}"><span class="n">${esc(names.join(' ＆ '))}</span><b class="sc">${score ?? '–'}</b></div>`;
+        return `
+          <div class="rec ${ok ? '' : 'pending'}">
+            <div class="rec-head"><span>第 ${mi + 1} 場</span>${ok ? '' : '<span class="tag">未完成</span>'}${rest.length ? `<span class="rec-rest">休息 ${esc(rest.join('、'))}</span>` : ''}</div>
+            ${team(m.teamA, m.scoreA, aw)}${team(m.teamB, m.scoreB, bw)}
+          </div>`;
+      }).join('')}`;
+  }).join('');
 }
 
 function summaryText(s) {
@@ -227,6 +286,11 @@ function summaryText(s) {
   const evs = orderEvents(s);
   for (const e of evs) lines.push(`・${(e.players || []).filter((p) => !e.text.includes(p)).join('、')}${e.text}`);
   if (!evs.length) lines.push('(無)');
+  lines.push('', '【對戰紀錄】');
+  for (const r of s.rounds) {
+    lines.push(`第 ${r.no} 輪`);
+    r.matches.forEach((m, i) => lines.push(`  ${i + 1}. ${m.teamA.join('＆')} ${m.scoreA ?? '–'} : ${m.scoreB ?? '–'} ${m.teamB.join('＆')}`));
+  }
   lines.push('', '【今日戰績】 名字 場/勝/敗/勝率');
   [...st.players].sort((a, b) => b.wins - a.wins || b.winRate - a.winRate).forEach((p) => lines.push(`${p.name} ${p.games}/${p.wins}/${p.losses}/${p.games ? pct(p.winRate) : '–'}`));
   return lines.join('\n');
@@ -450,6 +514,7 @@ const actions = {
 
   // 結算
   sort: (el) => { sortKey = el.dataset.k; render(); },
+  tab: (el) => { summaryTab = +el.dataset.i; render(); window.scrollTo(0, 0); },
   copy: async () => {
     const text = summaryText(getSession(sid()));
     try { await navigator.clipboard.writeText(text); toast('已複製,可貼到群組'); }
@@ -465,7 +530,7 @@ const actions = {
       const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true, windowWidth: 520,
         onclone: (doc) => { const st = doc.createElement('style'); st.textContent = '.pet,.pet *{animation:none!important}.shot{padding:18px 16px 10px!important}'; doc.head.appendChild(st); } });
       const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
-      const file = new File([blob], `badminton-${s.date}.png`, { type: 'image/png' });
+      const file = new File([blob], `badminton-${s.date}-${SUM_TABS[summaryTab].slug}.png`, { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
         try { await navigator.share({ files: [file], title: '羽球結算' }); return; }
         catch (err) { if (err.name === 'AbortError') return; }
