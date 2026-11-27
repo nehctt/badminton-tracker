@@ -16,7 +16,7 @@ let openRounds = new Set(); // 使用者手動展開過的輪
 let lastRoute = '';
 const scrollMemo = {}; // 從計分板返回時,回到原本的捲動位置
 
-const EVENT_TEMPLATES = ['抽筋了,下場休息', '挑釁對手結果自己馬上失誤', '殺球打到自己的腳', '球拍飛出去了', '絆到腳跌倒'];
+const EVENT_TEMPLATES = ['抽筋了,下場休息', '挑釁對手結果自己馬上失誤', '殺球打到自己的腳', '球拍飛出去了', '絆到腳跌倒', '成功擊殺隊友'];
 
 /* ---------- helpers ---------- */
 function toast(msg) {
