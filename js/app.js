@@ -1,7 +1,7 @@
 import { esc, uid, todayStr, nowHM, weekday, minutesBetween, fmtDuration } from './util.js';
 import { load, save, roster, exportJSON, importJSON } from './store.js';
 import { generateRound, suggestMatch, resting } from './scheduler.js';
-import { isComplete, hasDuplicate, computeStats, flatMatches, groupEvents, orderEvents, defaultAfterId } from './stats.js';
+import { isComplete, hasDuplicate, computeStats, flatMatches, groupEvents, orderEvents, defaultAfterId, validPoints } from './stats.js';
 import { computeTitles } from './titles.js';
 import { PETS, MOODS, petHTML, moodFromResults, moodFromRate, pickPetId } from './pets.js';
 
@@ -14,6 +14,7 @@ let draft = null; // 新增對戰表單
 let sortKey = 'wins';
 let openRounds = new Set(); // 使用者手動展開過的輪
 let lastRoute = '';
+const scrollMemo = {}; // 從計分板返回時,回到原本的捲動位置
 
 const EVENT_TEMPLATES = ['抽筋了,下場休息', '挑釁對手結果自己馬上失誤', '殺球打到自己的腳', '球拍飛出去了', '絆到腳跌倒'];
 
@@ -106,9 +107,11 @@ function matchHTML(s, r, ri, m, mi) {
   const score = (side, v) => `<input class="score" type="number" inputmode="numeric" min="0" max="99" placeholder="–" aria-label="${side === 'A' ? '上' : '下'}方比分" data-act="score" data-r="${ri}" data-m="${mi}" data-side="${side}" value="${v ?? ''}">`;
   const done = isComplete(m);
   const rest = resting(s.players, m);
+  const live = !done && m.draft && (m.draft.seq.length || m.draft.baseA || m.draft.baseB);
+  const goLabel = live ? `計分中 ${draftScore(m.draft, 'A')}:${draftScore(m.draft, 'B')}` : '▶ 計分';
   return `
     <section class="match ${hasDuplicate(m) ? 'bad' : ''}" data-r="${ri}" data-m="${mi}">
-      <div class="m-head"><span class="m-no">第 ${mi + 1} 場</span><span class="m-rest">${rest.length ? '休息 ' + esc(rest.join('、')) : ''}</span><button class="x" data-act="del-match" data-r="${ri}" data-m="${mi}" aria-label="刪除此場">✕</button></div>
+      <div class="m-head"><span class="m-no">第 ${mi + 1} 場</span><button class="btn small go ${live ? 'live' : ''}" data-act="open-board" data-mid="${m.id}">${goLabel}</button><span class="m-rest">${rest.length ? '休息 ' + esc(rest.join('、')) : ''}</span><button class="x" data-act="del-match" data-r="${ri}" data-m="${mi}" aria-label="刪除此場">✕</button></div>
       <div class="team ${done && m.scoreA > m.scoreB ? 'win' : ''}" data-side="A"><div class="pls">${sel('teamA', 0)}${sel('teamA', 1)}</div>${score('A', m.scoreA)}</div>
       <div class="vs"><span>VS</span></div>
       <div class="team ${done && m.scoreB > m.scoreA ? 'win' : ''}" data-side="B"><div class="pls">${sel('teamB', 0)}${sel('teamB', 1)}</div>${score('B', m.scoreB)}</div>
@@ -142,17 +145,15 @@ function viewPlay(s) {
       const open = ri === last || !roundDone(r) || openRounds.has(r.id);
       return `<details class="round" data-rid="${r.id}" ${open ? 'open' : ''}>
         <summary><b>第 ${r.no} 輪</b><span class="prog" data-prog="${ri}"></span></summary>
-        ${r.matches.map((m, mi) => matchHTML(s, r, ri, m, mi) + (g.by[m.id] || []).map(evRow).join('')).join('')}
+        <div class="round-grid">${r.matches.map((m, mi) => matchHTML(s, r, ri, m, mi) + (g.by[m.id] || []).map(evRow).join('')).join('')}</div>
         ${ri === last ? `<button class="add-match" data-act="add-match" data-r="${ri}">＋ 加一場</button>` : ''}
       </details>`;
     }).join('')}
-    <div class="bar"><div class="in">
-      <div class="hint" id="hint"></div>
-      <div class="btns">
-        <button class="btn" data-act="open-event">＋ 事件</button>
-        <button class="btn primary next" id="nextBtn" data-act="next-round">生成下一輪</button>
-        <button class="btn" data-act="finish">結算</button>
-      </div></div></div>
+    <div class="fab" role="toolbar" aria-label="操作">
+      <button class="btn" data-act="open-event">🎭 事件</button>
+      <button class="btn primary" id="nextBtn" data-act="next-round">➕ 下一輪</button>
+      <button class="btn" data-act="finish">🏁 結算</button>
+    </div>
     <dialog id="evDlg">
       <h3>記錄特殊事件</h3>
       <div class="lbl" style="margin-top:0">相關的人(可複選,可不選)</div>
@@ -263,18 +264,18 @@ function pageRecords(s) {
     const done = r.matches.filter(isComplete).length;
     return `
       <div class="sec"><h2>第 ${r.no} 輪</h2><span>${done} / ${r.matches.length} 場完成</span></div>
-      ${r.matches.map((m, mi) => {
+      <div class="rec-grid">${r.matches.map((m, mi) => {
         const ok = isComplete(m);
         const aw = ok && m.scoreA > m.scoreB;
         const bw = ok && m.scoreB > m.scoreA;
         const rest = resting(s.players, m);
         const team = (names, score, win) => `<div class="rec-team ${win ? 'win' : ''}"><span class="n">${esc(names.join(' ＆ '))}</span><b class="sc">${score ?? '–'}</b></div>`;
         return `
-          <div class="rec ${ok ? '' : 'pending'}">
-            <div class="rec-head"><span>第 ${mi + 1} 場</span>${ok ? '' : '<span class="tag">未完成</span>'}${rest.length ? `<span class="rec-rest">休息 ${esc(rest.join('、'))}</span>` : ''}</div>
+          <div class="rec ${ok ? '' : 'pending'}" data-act="open-board" data-mid="${m.id}">
+            <div class="rec-head"><span>第 ${mi + 1} 場</span>${ok ? '' : '<span class="tag">未完成</span>'}${m.points && ok ? '<span class="tag seq" title="有得分順序">⏱</span>' : ''}${rest.length ? `<span class="rec-rest">休息 ${esc(rest.join('、'))}</span>` : ''}<span class="rec-go">計分 ›</span></div>
             ${team(m.teamA, m.scoreA, aw)}${team(m.teamB, m.scoreB, bw)}
           </div>`;
-      }).join('')}`;
+      }).join('')}</div>`;
   }).join('');
 }
 
@@ -300,8 +301,15 @@ function summaryText(s) {
 function render() {
   const hash = location.hash || '#/';
   const m = hash.match(/^#\/s\/([^/]+)(\/summary)?$/);
+  const bm = hash.match(/^#\/s\/([^/]+)\/m\/([^/]+)$/);
+  const bs = bm && getSession(bm[1]);
+  const bmatch = bs && findMatch(bs, bm[2]);
+  if (lastRoute) scrollMemo[lastRoute] = window.scrollY;
   let html;
-  if (hash === '#/new') {
+  if (bmatch) {
+    if (!board || board.mid !== bmatch.id) loadBoard(bs, bmatch);
+    html = viewBoard(bs, bmatch);
+  } else if (hash === '#/new') {
     draft ||= newDraft();
     html = viewNew();
   } else if (m && getSession(m[1])) {
@@ -311,11 +319,15 @@ function render() {
     if (hash !== '#/') { location.replace('#/'); return; }
     html = viewHome();
   }
-  const y = lastRoute === hash ? window.scrollY : 0;
+  const y = lastRoute === hash ? window.scrollY : (lastRoute.includes('/m/') ? scrollMemo[hash] ?? 0 : 0);
+  if (!bmatch && board) leaveBoard(); // 用系統返回離開時,也要把進行中的比分存起來
   app.innerHTML = html;
-  window.scrollTo(0, y);
+  document.documentElement.classList.toggle('lock', !!bmatch);
+  keepAwake(!!bmatch);
+  window.scrollTo(0, bmatch ? 0 : y);
   lastRoute = hash;
-  if (m && !m[2]) patchLive(getSession(m[1]));
+  if (bmatch) patchBoard();
+  else if (m && !m[2]) patchLive(getSession(m[1]));
 }
 
 /** 輸入比分時只更新樣式與按鈕狀態,不重繪(避免鍵盤收起) */
@@ -341,6 +353,125 @@ function patchLive(s) {
   const hint = document.getElementById('hint');
   if (hint) hint.textContent = last && !roundDone(last) ? '本輪還有場次沒填完,仍可先生成下一輪' : '';
 }
+
+/* ---------- 計分板 ---------- */
+let board = null; // { sid, mid, baseA, baseB, seq, flip, wasComplete, dirty }
+let boardFrom = null;
+let wakeLock = null;
+
+const draftScore = (d, side) => (side === 'A' ? d.baseA : d.baseB) + d.seq.filter((x) => x === side).length;
+const boardScore = (b, side) => draftScore(b, side);
+
+function findMatch(s, mid) {
+  const f = flatMatches(s).find((x) => x.id === mid);
+  return f ? f.m : null;
+}
+
+/** 開啟計分板時的起點:草稿 > 既有的得分順序 > 既有的最終比分 > 0:0 */
+function loadBoard(s, m) {
+  const wasComplete = isComplete(m);
+  let baseA = 0, baseB = 0, seq = [];
+  if (!wasComplete && m.draft) { baseA = m.draft.baseA; baseB = m.draft.baseB; seq = [...m.draft.seq]; }
+  else if (validPoints(m)) seq = [...m.points];
+  else if (Number.isInteger(m.scoreA) && Number.isInteger(m.scoreB)) { baseA = m.scoreA; baseB = m.scoreB; }
+  board = { sid: s.id, mid: m.id, baseA, baseB, seq, flip: false, wasComplete, dirty: false };
+}
+
+/** 目前連續得分(以最後一分為準) */
+function currentRun(seq) {
+  const side = seq[seq.length - 1];
+  let n = 0;
+  for (let i = seq.length - 1; i >= 0 && seq[i] === side; i--) n++;
+  return { side, n };
+}
+
+function viewBoard(s, m) {
+  const side = (k) => {
+    const names = k === 'A' ? m.teamA : m.teamB;
+    return `<div class="b-side b-${k.toLowerCase()}" data-act="b-plus" data-side="${k}">
+      <div class="b-pets" data-pets="${k}"></div>
+      <div class="b-names">${esc(names.join(' ＆ '))}</div>
+      <div class="b-score" data-score="${k}">0</div>
+      <div class="b-streak" data-streak="${k}"></div>
+      <button class="b-minus" data-act="b-minus" data-side="${k}" aria-label="扣一分">−1</button>
+    </div>`;
+  };
+  return `<div class="board ${board.flip ? 'flip' : ''}" id="board">
+    ${side('A')}
+    <div class="b-mid">
+      <button class="b-btn" data-act="b-back" aria-label="返回">←</button>
+      <span class="b-vs">VS</span>
+      <button class="b-btn" id="bUndo" data-act="b-undo" aria-label="復原上一分">↶</button>
+      <button class="b-btn" data-act="b-flip" aria-label="換邊">⇄</button>
+      <button class="b-btn done" id="bDone" data-act="b-done">✓ 完成</button>
+    </div>
+    ${side('B')}
+  </div>`;
+}
+
+function patchBoard() {
+  const el = document.getElementById('board');
+  if (!board || !el) return;
+  const s = getSession(board.sid);
+  const m = findMatch(s, board.mid);
+  if (!m) return;
+  const run = currentRun(board.seq);
+  for (const k of ['A', 'B']) {
+    const names = k === 'A' ? m.teamA : m.teamB;
+    const score = boardScore(board, k);
+    const sc = el.querySelector(`[data-score="${k}"]`);
+    if (sc.textContent !== String(score)) {
+      sc.textContent = score;
+      sc.classList.remove('pop'); void sc.offsetWidth; sc.classList.add('pop');
+    }
+    const st = el.querySelector(`[data-streak="${k}"]`);
+    st.textContent = run.n >= 3 ? (run.side === k ? `🔥 連續得分 ×${run.n}` : `💧 連續失分 ×${run.n}`) : '';
+    st.classList.toggle('loss', run.n >= 3 && run.side !== k);
+    // 寵物:依「連續得分/失分」的動能變化(每得一分 +1、每失一分 −1)
+    if (s.pets) {
+      const mood = moodFromResults(board.seq.map((x) => (x === k ? 'W' : 'L')));
+      const want = `${names.map((n) => s.pets[n]).join(',')}|${mood}`;
+      const slot = el.querySelector(`[data-pets="${k}"]`);
+      if (slot.dataset.k !== want) {
+        const prev = slot.dataset.k ? +slot.dataset.k.split('|')[1] : undefined;
+        slot.dataset.k = want;
+        slot.innerHTML = names.map((n) => (s.pets[n] ? petHTML(s.pets[n], mood, 72, `${n}・${MOODS[mood]}`) : '')).join('');
+        if (prev !== undefined && prev !== mood) {
+          const cls = mood > prev ? 'fx-up' : 'fx-down';
+          slot.classList.remove('fx-up', 'fx-down'); void slot.offsetWidth; slot.classList.add(cls);
+        }
+      }
+    }
+  }
+  document.getElementById('bUndo').disabled = board.seq.length === 0;
+  document.getElementById('bDone').disabled = boardScore(board, 'A') === boardScore(board, 'B');
+}
+
+function saveDraft() {
+  if (!board || board.wasComplete) return;
+  const m = findMatch(getSession(board.sid), board.mid);
+  if (!m) return;
+  if (!board.seq.length && !board.baseA && !board.baseB) delete m.draft;
+  else m.draft = { baseA: board.baseA, baseB: board.baseB, seq: [...board.seq] };
+  persist();
+}
+
+function leaveBoard() { saveDraft(); board = null; }
+
+function afterPoint(buzz) {
+  board.dirty = true;
+  saveDraft();
+  patchBoard();
+  if (buzz) navigator.vibrate?.(12);
+}
+
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock) wakeLock = await navigator.wakeLock?.request('screen');
+    else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch { wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && board) { wakeLock = null; keepAwake(true); } });
 
 /* ---------- 寵物 ---------- */
 const moodMemo = {}; // `${sessionId}:${name}` → 上次顯示的心情(用來判斷要不要播「變開心/變難過」特效)
@@ -514,6 +645,41 @@ const actions = {
 
   // 結算
   sort: (el) => { sortKey = el.dataset.k; render(); },
+  'open-board': (el) => {
+    boardFrom = location.hash;
+    go(`#/s/${sid()}/m/${el.dataset.mid}`);
+  },
+  'b-plus': (el) => { board.seq.push(el.dataset.side); afterPoint(true); },
+  'b-minus': (el) => {
+    const k = el.dataset.side;
+    const i = board.seq.lastIndexOf(k);
+    if (i >= 0) board.seq.splice(i, 1);
+    else if ((k === 'A' ? board.baseA : board.baseB) > 0) { if (k === 'A') board.baseA--; else board.baseB--; }
+    else return;
+    afterPoint(false);
+  },
+  'b-undo': () => { if (!board.seq.length) return; board.seq.pop(); afterPoint(false); },
+  'b-flip': () => { board.flip = !board.flip; document.getElementById('board').classList.toggle('flip', board.flip); },
+  'b-back': () => {
+    if (board.wasComplete && board.dirty && !confirm('放棄這次的修改?')) return;
+    const back = boardFrom || `#/s/${board.sid}`;
+    leaveBoard();
+    go(back);
+  },
+  'b-done': () => {
+    const A = boardScore(board, 'A'), B = boardScore(board, 'B');
+    if (A === B) { toast('比分相同,還不能完成'); return; }
+    const m = findMatch(getSession(board.sid), board.mid);
+    m.scoreA = A; m.scoreB = B;
+    // 只有「從 0:0 開始用計分板記的」才有完整的得分順序
+    m.points = !board.baseA && !board.baseB && board.seq.length ? [...board.seq] : null;
+    delete m.draft;
+    persist();
+    const back = boardFrom || `#/s/${board.sid}`;
+    board = null;
+    go(back);
+    toast(`已記錄 ${A} : ${B}`);
+  },
   tab: (el) => { summaryTab = +el.dataset.i; render(); window.scrollTo(0, 0); },
   copy: async () => {
     const text = summaryText(getSession(sid()));
@@ -528,7 +694,7 @@ const actions = {
       const node = document.getElementById('shot');
       const bg = getComputedStyle(document.body).backgroundColor;
       const canvas = await window.html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true, windowWidth: 520,
-        onclone: (doc) => { const st = doc.createElement('style'); st.textContent = '.pet,.pet *{animation:none!important}.shot{padding:18px 16px 10px!important}'; doc.head.appendChild(st); } });
+        onclone: (doc) => { const st = doc.createElement('style'); st.textContent = '.pet,.pet *{animation:none!important}.shot{padding:18px 16px 10px!important}.rec-go{display:none!important}'; doc.head.appendChild(st); } });
       const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
       const file = new File([blob], `badminton-${s.date}-${SUM_TABS[summaryTab].slug}.png`, { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
@@ -587,6 +753,8 @@ app.addEventListener('input', (e) => {
     const m = s.rounds[+el.dataset.r].matches[+el.dataset.m];
     const v = el.value === '' ? null : Math.max(0, Math.min(99, parseInt(el.value, 10)));
     m[el.dataset.side === 'A' ? 'scoreA' : 'scoreB'] = Number.isNaN(v) ? null : v;
+    if (m.points && !validPoints(m)) m.points = null; // 手動改比分 → 得分順序不再可信
+    delete m.draft;
     persist(); patchLive(s);
   } else if (el.dataset.f && draft) {
     draft[el.dataset.f] = el.value;

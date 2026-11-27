@@ -184,6 +184,30 @@ export const TITLES = [
       return st.matches.length >= 3 ? [{ label: m.winners.join(' ＆ '), note: `${m.wScore}:${m.lScore} 收下壓軸戰` }] : [];
     },
   },
+  {
+    id: 'wave', icon: '🌊', name: '一波流', desc: '最長連續得分(至少連得 5 分)',
+    calc: ({ act }) => players(best(act.filter((p) => p.maxPtRun >= 5), [(p) => p.maxPtRun]), (p) => `連續得 ${p.maxPtRun} 分`),
+  },
+  {
+    id: 'blackhole', icon: '🕳️', name: '連失黑洞', desc: '最長連續失分(至少連失 5 分)',
+    calc: ({ act }) => players(best(act.filter((p) => p.maxPtLose >= 5), [(p) => p.maxPtLose]), (p) => `連續失 ${p.maxPtLose} 分`),
+  },
+  {
+    id: 'stopper', icon: '🩹', name: '止血大師', desc: '打斷對手連續得分(對手至少連得 4 分)次數最多',
+    calc: ({ act }) => players(best(act.filter((p) => p.stopRuns >= 1), [(p) => p.stopRuns]), (p) => `止血 ${p.stopRuns} 次`),
+  },
+  {
+    id: 'comeback', icon: '🔁', name: '逆轉王', desc: '落後最多分後仍逆轉獲勝(至少落後 5 分)',
+    calc: ({ act }) => players(best(act.filter((p) => p.bestComeback >= 5), [(p) => p.bestComeback]), (p) => `落後 ${p.bestComeback} 分後逆轉`),
+  },
+  {
+    id: 'collapse', icon: '📉', name: '大崩盤', desc: '領先最多分卻輸掉比賽(至少領先 5 分)',
+    calc: ({ act }) => players(best(act.filter((p) => p.blownLead >= 5), [(p) => p.blownLead]), (p) => `領先 ${p.blownLead} 分卻輸了`),
+  },
+  {
+    id: 'wire', icon: '🏁', name: '全程領先', desc: '從頭領先到尾(整場沒落後過)的勝場最多(至少 2 場)',
+    calc: ({ act }) => players(best(act.filter((p) => p.wireWins >= 2), [(p) => p.wireWins]), (p) => `${p.wireWins} 場從頭贏到尾`),
+  },
 ];
 
 function halves(p) {

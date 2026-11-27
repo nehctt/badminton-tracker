@@ -10,6 +10,33 @@ export function isComplete(m) {
   );
 }
 
+/** 連續得分達幾分,才算「對手的一波流」,被打斷時會記一次「止血」 */
+export const STOP_RUN = 4;
+
+/** 比分順序是否有效(記分板產生的 points,且和最終比分吻合) */
+export function validPoints(m) {
+  return Array.isArray(m.points) && Number.isInteger(m.scoreA) && Number.isInteger(m.scoreB) &&
+    m.points.length === m.scoreA + m.scoreB &&
+    m.points.filter((x) => x === 'A').length === m.scoreA;
+}
+
+/** 由得分順序(['A','B',...])算出:最大領先、最長連續得分、打斷連續得分次數 */
+export function analyzePoints(points) {
+  let a = 0, b = 0, leadA = 0, leadB = 0, run = 0, runSide = null, maxRunA = 0, maxRunB = 0;
+  const ended = { A: 0, B: 0 };
+  for (const p of points) {
+    if (p === runSide) run++;
+    else {
+      if (runSide && run >= STOP_RUN) ended[p]++;
+      runSide = p; run = 1;
+    }
+    if (p === 'A') { a++; maxRunA = Math.max(maxRunA, run); } else { b++; maxRunB = Math.max(maxRunB, run); }
+    leadA = Math.max(leadA, a - b);
+    leadB = Math.max(leadB, b - a);
+  }
+  return { a, b, leadA, leadB, maxRunA, maxRunB, ended };
+}
+
 export function hasDuplicate(m) {
   const names = [...m.teamA, ...m.teamB].filter(Boolean);
   return new Set(names).size !== names.length;
@@ -20,6 +47,7 @@ const blank = (name) => ({
   curWin: 0, curLose: 0, maxWin: 0, maxLose: 0,
   enders: 0, rests: 0, closeGames: 0, closeWins: 0, closeLosses: 0,
   results: [], margins: [], partners: new Set(),
+  seqMatches: 0, maxPtRun: 0, maxPtLose: 0, stopRuns: 0, bestComeback: 0, blownLead: 0, wireWins: 0,
 });
 
 export function computeStats(session) {
@@ -60,6 +88,28 @@ export function computeStats(session) {
       };
       winners.forEach((n) => record(n, true, wScore, lScore));
       losers.forEach((n) => record(n, false, lScore, wScore));
+
+      if (validPoints(m)) {
+        const an = analyzePoints(m.points);
+        for (const [side, team] of [['A', m.teamA], ['B', m.teamB]]) {
+          const won = (side === 'A') === aWin;
+          const myLead = side === 'A' ? an.leadA : an.leadB;
+          const theirLead = side === 'A' ? an.leadB : an.leadA;
+          for (const n of team) {
+            const p = get(n);
+            p.seqMatches++;
+            p.maxPtRun = Math.max(p.maxPtRun, side === 'A' ? an.maxRunA : an.maxRunB);
+            p.maxPtLose = Math.max(p.maxPtLose, side === 'A' ? an.maxRunB : an.maxRunA);
+            p.stopRuns += an.ended[side];
+            if (won) {
+              p.bestComeback = Math.max(p.bestComeback, theirLead); // 落後最多時差多少分,最後還是贏了
+              if (theirLead <= 0) p.wireWins++; // 從頭領先到尾
+            } else {
+              p.blownLead = Math.max(p.blownLead, myLead); // 曾經領先這麼多,最後卻輸了
+            }
+          }
+        }
+      }
 
       const on = new Set([...m.teamA, ...m.teamB]);
       for (const name of Object.keys(players)) if (!on.has(name)) players[name].rests++;

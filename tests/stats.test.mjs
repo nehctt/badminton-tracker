@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { computeStats, isComplete, groupEvents, orderEvents, defaultAfterId } from '../js/stats.js';
+import { computeStats, isComplete, groupEvents, orderEvents, defaultAfterId, analyzePoints, validPoints } from '../js/stats.js';
 import { computeTitles, TITLES } from '../js/titles.js';
 
 const m = (A, B, a, b) => ({ id: Math.random(), teamA: A, teamB: B, scoreA: a, scoreB: b });
@@ -73,4 +73,48 @@ test('事件時間軸:插在指定場次之後、舊資料放最後、預設在�
   assert.equal(defaultAfterId(ss), 'm3');
   a.scoreA = a.scoreB = b.scoreA = b.scoreB = c.scoreA = c.scoreB = null;
   assert.equal(defaultAfterId(ss), null); // 都沒完成 → 最前面
+});
+
+const seq = (str) => [...str];
+test('analyzePoints:最大領先、最長連續得分、止血', () => {
+  // A 先連得 5 分,B 連得 4 分追平且被 A 打斷 → A 止血 1 次
+  const an = analyzePoints(seq('AAAAABBBBA'));
+  assert.equal(an.maxRunA, 5);
+  assert.equal(an.maxRunB, 4);
+  assert.equal(an.leadA, 5);
+  assert.equal(an.leadB, 0);
+  assert.deepEqual(an.ended, { A: 1, B: 1 }); // B 打斷了 A 的 5 連得;A 又打斷了 B 的 4 連得
+  assert.deepEqual(analyzePoints(seq('ABAB')).ended, { A: 0, B: 0 });
+});
+
+test('validPoints:順序與最終比分要吻合', () => {
+  assert.ok(validPoints({ points: seq('AAB'), scoreA: 2, scoreB: 1 }));
+  assert.ok(!validPoints({ points: seq('AAB'), scoreA: 1, scoreB: 2 }));
+  assert.ok(!validPoints({ points: null, scoreA: 2, scoreB: 1 }));
+});
+
+test('順序統計:逆轉、崩盤、全程領先、連續得失分', () => {
+  // m1:B 先領先 6 分,A 逆轉贏 → A 隊 bestComeback=6;B 隊 blownLead=6
+  const m1 = { id: 'x1', teamA: ['A', 'B'], teamB: ['C', 'D'], scoreA: 8, scoreB: 6, points: seq('BBBBBBAAAAAAAA') };
+  // m2:A 從頭領先到尾
+  const m2 = { id: 'x2', teamA: ['A', 'B'], teamB: ['C', 'D'], scoreA: 5, scoreB: 1, points: seq('AABAAA') };
+  // m3:沒有順序(手動輸入比分)→ 不計入
+  const m3 = { id: 'x3', teamA: ['A', 'C'], teamB: ['B', 'D'], scoreA: 21, scoreB: 3, points: null };
+  const st = computeStats({ players: ['A', 'B', 'C', 'D'], events: [], rounds: [{ no: 1, matches: [m1, m2, m3] }] });
+  const p = Object.fromEntries(st.players.map((x) => [x.name, x]));
+  assert.equal(p.A.bestComeback, 6);
+  assert.equal(p.A.maxPtRun, 8);
+  assert.equal(p.A.wireWins, 1);
+  assert.equal(p.A.seqMatches, 2);
+  assert.equal(p.C.blownLead, 6); // C、D 先領先 6 分卻輸了 → 崩盤 6
+  assert.equal(p.C.maxPtLose, 8);
+});
+
+test('新稱號:連續得失分類', () => {
+  const m1 = { id: 'y1', teamA: ['A', 'B'], teamB: ['C', 'D'], scoreA: 8, scoreB: 6, points: seq('BBBBBBAAAAAAAA') };
+  const t = Object.fromEntries(computeTitles({ players: ['A', 'B', 'C', 'D'], events: [], rounds: [{ no: 1, matches: [m1] }] }).map((x) => [x.id, x]));
+  assert.ok(t.wave.items.some((i) => i.label === 'A') && t.wave.items[0].note.includes('8'));
+  assert.ok(t.comeback.items.length === 2); // A、B 同隊
+  assert.ok(t.collapse.items.some((i) => i.label === 'C'));
+  assert.ok(t.blackhole.items.length >= 1);
 });
