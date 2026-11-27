@@ -236,7 +236,7 @@ dialog .actions .btn { flex: 1; }
 
 /* 新增對戰:選寵物 */
 .lbl { font-size: 13px; color: var(--sub); margin: 12px 0 6px; }
-.pet-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.pet-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .pet-opt { border: 1px solid var(--line2); background: var(--card); border-radius: 14px; padding: 6px 2px 5px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; font-size: 11px; color: var(--sub); }
 .pet-opt .pet { width: 38px !important; height: 38px !important; }
 .pet-opt.on { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 700; }
@@ -244,7 +244,7 @@ dialog .actions .btn { flex: 1; }
 .chip .chip-pet { display: inline-flex; cursor: pointer; padding: 2px; margin: -2px; }
 .chip .chip-pet .pet { width: 30px !important; height: 30px !important; }
 .chip .x { padding: 8px 10px 8px 12px; margin: -4px -6px -4px 0; cursor: pointer; opacity: .7; }
-dialog .pet-grid { grid-template-columns: repeat(4, 1fr); }
+dialog .pet-grid { grid-template-columns: repeat(5, 1fr); }
 
 /* 結算:戰績表中的寵物 */
 .nm-cell { display: flex; align-items: center; gap: 8px; }
@@ -346,7 +346,7 @@ html.lock, html.lock body { overflow: hidden; overscroll-behavior: none; }
   #app { max-width: 980px; }
   .round-grid, .rec-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; align-items: start; }
   .round-grid > .evt { grid-column: 1 / -1; }
-  .pet-grid { grid-template-columns: repeat(12, 1fr); }
+  .pet-grid { grid-template-columns: repeat(10, 1fr); }
   .pet-opt .pet { width: 34px !important; height: 34px !important; }
 }
 @media (max-height: 520px) and (orientation: landscape) {

@@ -1,4 +1,4 @@
-// 寵物:12 隻造型 × 5 種心情。全部是內嵌 SVG(不需任何圖片檔),動畫由 CSS 控制。
+// 寵物:20 隻造型 × 5 種心情。全部是內嵌 SVG(不需任何圖片檔),動畫由 CSS 控制。
 import { esc } from './util.js';
 
 export const MOODS = ['超難過', '難過', '正常', '快樂', '超快樂'];
@@ -109,6 +109,61 @@ export const PETS = [
       <path d="M10,30 A40,40 0 0 0 90,30 Z" fill="#ff5d6c"/>
       <ellipse cx="22" cy="42" rx="2" ry="3.3" transform="rotate(-20 22 42)" fill="${INK}"/><ellipse cx="78" cy="42" rx="2" ry="3.3" transform="rotate(20 78 42)" fill="${INK}"/>
       <ellipse cx="30" cy="58" rx="2" ry="3.3" transform="rotate(-30 30 58)" fill="${INK}"/><ellipse cx="70" cy="58" rx="2" ry="3.3" transform="rotate(30 70 58)" fill="${INK}"/>`,
+  },
+  {
+    id: 'pig', name: '小豬', anchor: { x: 50, y: 44, s: 1 },
+    body: `<path d="M22,38 Q6,22 18,10 Q36,8 44,26 Z" fill="#ff9fb4" ${st}/><path d="M78,38 Q94,22 82,10 Q64,8 56,26 Z" fill="#ff9fb4" ${st}/>
+      <ellipse cx="50" cy="56" rx="38" ry="32" fill="#ffb3c6" ${st}/>
+      <ellipse cx="50" cy="55" rx="14" ry="9.5" fill="#ff8fab" stroke="#e86a8d" stroke-width="1.6"/>`,
+    front: `<ellipse cx="44.5" cy="54" rx="2.3" ry="3.2" fill="#b83a5e"/><ellipse cx="55.5" cy="54" rx="2.3" ry="3.2" fill="#b83a5e"/>`,
+  },
+  {
+    id: 'fox', name: '狐狸', anchor: { x: 50, y: 50, s: 1 },
+    body: `<path d="M16,42 L18,8 L44,26 Z" fill="#f28c38" ${st}/><path d="M84,42 L82,8 L56,26 Z" fill="#f28c38" ${st}/>
+      <path d="M22,32 L21,17 L33,26 Z" fill="${INK}"/><path d="M78,32 L79,17 L67,26 Z" fill="${INK}"/>
+      <ellipse cx="50" cy="58" rx="38" ry="30" fill="#f28c38" ${st}/>
+      <path d="M13,60 Q28,56 40,66 Q50,70 60,66 Q72,56 87,60 Q85,86 50,88 Q15,86 13,60 Z" fill="#ffffff"/>`,
+    front: `<ellipse cx="50" cy="58" rx="4" ry="3" fill="${INK}"/>`,
+  },
+  {
+    id: 'frog', name: '青蛙', anchor: { x: 50, y: 36, s: 1.4 },
+    body: `<ellipse cx="50" cy="64" rx="39" ry="27" fill="#7ccf6b" ${st}/>
+      <ellipse cx="50" cy="76" rx="24" ry="12" fill="#c9f1b9"/>
+      <circle cx="31" cy="36" r="14" fill="#7ccf6b" ${st}/><circle cx="69" cy="36" r="14" fill="#7ccf6b" ${st}/>
+      <circle cx="31" cy="36" r="9.5" fill="#ffffff"/><circle cx="69" cy="36" r="9.5" fill="#ffffff"/>`,
+  },
+  {
+    id: 'boba', name: '珍奶', anchor: { x: 50, y: 54, s: 0.85 },
+    body: `<path d="M60,28 L68,3" stroke="#ff7aa2" stroke-width="6" stroke-linecap="round" fill="none"/>
+      <path d="M22,28 L78,28 L70,92 Q50,98 30,92 Z" fill="#f4dcc0" ${st}/>
+      <ellipse cx="50" cy="27" rx="31" ry="7" fill="#eaf6ff" ${st}/>
+      <circle cx="37" cy="86" r="4.6" fill="#4a3228"/><circle cx="48" cy="88" r="4.6" fill="#4a3228"/><circle cx="59" cy="86" r="4.6" fill="#4a3228"/>
+      <circle cx="65" cy="79" r="4.6" fill="#4a3228"/><circle cx="42" cy="78" r="4.6" fill="#4a3228"/><circle cx="54" cy="79" r="4.6" fill="#4a3228"/>`,
+  },
+  {
+    id: 'egg', name: '荷包蛋', anchor: { x: 50, y: 52, s: 0.8 },
+    body: `<path d="M16,46 Q6,22 34,20 Q50,6 68,20 Q96,22 86,48 Q98,76 70,84 Q50,98 32,84 Q4,76 16,46 Z" fill="#ffffff" ${st}/>
+      <circle cx="50" cy="52" r="25" fill="#ffc933"/>
+      <ellipse cx="38" cy="38" rx="5" ry="3" transform="rotate(-30 38 38)" fill="#fff3b0"/>`,
+  },
+  {
+    id: 'berry', name: '草莓', anchor: { x: 50, y: 52, s: 0.95 },
+    body: `<path d="M50,93 Q12,70 13,44 Q14,22 34,22 Q44,22 50,28 Q56,22 66,22 Q86,22 87,44 Q88,70 50,93 Z" fill="#ff5a68" ${st}/>
+      <path d="M28,26 L40,11 L50,23 L60,11 L72,26 L62,30 L50,24 L38,30 Z" fill="#4cc38a" ${st}/>
+      <ellipse cx="25" cy="46" rx="1.8" ry="3" fill="#ffe27a"/><ellipse cx="75" cy="46" rx="1.8" ry="3" fill="#ffe27a"/>
+      <ellipse cx="30" cy="66" rx="1.8" ry="3" fill="#ffe27a"/><ellipse cx="70" cy="66" rx="1.8" ry="3" fill="#ffe27a"/>
+      <ellipse cx="42" cy="79" rx="1.8" ry="3" fill="#ffe27a"/><ellipse cx="58" cy="79" rx="1.8" ry="3" fill="#ffe27a"/>`,
+  },
+  {
+    id: 'ghost', name: '幽靈', anchor: { x: 50, y: 46, s: 1 },
+    body: `<path d="M15,92 L15,50 Q15,10 50,10 Q85,10 85,50 L85,92 Q76,83 67.5,92 Q59,83 50,92 Q41,83 32.5,92 Q24,83 15,92 Z" fill="#f4f2ff" ${st}/>
+      <ellipse cx="30" cy="30" rx="6" ry="3.5" transform="rotate(-35 30 30)" fill="#ffffff"/>`,
+  },
+  {
+    id: 'toast', name: '吐司', anchor: { x: 50, y: 56, s: 0.9 },
+    body: `<path d="M20,90 L20,52 Q4,48 6,32 Q8,12 30,14 Q40,6 50,12 Q60,6 70,14 Q92,12 94,32 Q96,48 80,52 L80,90 Z" fill="#f2c98a" ${st}/>
+      <path d="M20,90 L20,52 Q4,48 6,32 Q8,12 30,14 Q40,6 50,12 Q60,6 70,14 Q92,12 94,32 Q96,48 80,52 L80,90 Z" transform="translate(50 52) scale(.84) translate(-50 -52)" fill="#fde6bb"/>
+      <rect x="60" y="24" width="14" height="11" rx="2" transform="rotate(-10 67 30)" fill="#ffe27a" stroke="#e0b73a" stroke-width="1.2"/>`,
   },
 ];
 

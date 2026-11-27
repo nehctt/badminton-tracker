@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PETS, MOODS, petHTML, moodFromResults, moodFromRate, pickPetId } from '../js/pets.js';
 
-test('12 隻寵物、id 不重複、5 種心情', () => {
-  assert.equal(PETS.length, 12);
-  assert.equal(new Set(PETS.map((p) => p.id)).size, 12);
+test('20 隻寵物、id 不重複、5 種心情', () => {
+  assert.equal(PETS.length, 20);
+  assert.equal(new Set(PETS.map((p) => p.id)).size, 20);
   assert.deepEqual(MOODS, ['超難過', '難過', '正常', '快樂', '超快樂']);
 });
 
