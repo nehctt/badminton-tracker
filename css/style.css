@@ -296,6 +296,11 @@ dialog .pet-grid { grid-template-columns: repeat(4, 1fr); }
 
 /* ---------- 計分板(直式上下分隊、橫式左右分隊) ---------- */
 html.lock, html.lock body { overflow: hidden; overscroll-behavior: none; }
+/* 計分板固定用亮色(不跟隨系統深色模式):球館燈光/日光下較易讀,寵物顏色也不會在深底失真。
+   連文字與按鈕顏色一併指定,避免深色模式的淺色字落在亮底上而隱形。 */
+.board { --bg: #f3f5f4; --card: #fff; --ink: #17201d; --sub: #66746f; --line: #e1e6e3; --line2: #c5cec9;
+  --accent: #0f9d7a; --accent-ink: #fff; --soft: #e5f5ee; --blue: #2563eb; --blue-soft: #e8f0ff;
+  color: var(--ink); color-scheme: light; }
 .board { position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: 1fr auto 1fr; background: var(--bg);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   touch-action: manipulation; -webkit-user-select: none; user-select: none; --ps: clamp(32px, 6.8vh, 76px); }
