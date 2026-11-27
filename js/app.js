@@ -1,4 +1,4 @@
-import { esc, uid, todayStr, nowHM, weekday, minutesBetween, fmtDuration } from './util.js';
+import { esc, uid, todayStr, nowHM, weekday, minutesBetween, fmtDuration, fmtDurationShort } from './util.js';
 import { load, save, roster, exportJSON, importJSON } from './store.js';
 import { generateRound, suggestMatch, resting } from './scheduler.js';
 import { isComplete, hasDuplicate, computeStats, flatMatches, groupEvents, orderEvents, defaultAfterId, validPoints } from './stats.js';
@@ -107,11 +107,13 @@ function matchHTML(s, r, ri, m, mi) {
   const score = (side, v) => `<input class="score" type="number" inputmode="numeric" min="0" max="99" placeholder="–" aria-label="${side === 'A' ? '上' : '下'}方比分" data-act="score" data-r="${ri}" data-m="${mi}" data-side="${side}" value="${v ?? ''}">`;
   const done = isComplete(m);
   const rest = resting(s.players, m);
+  const cur = currentMatch(s);
+  const isCur = !!cur && cur.id === m.id;
   const live = !done && m.draft && (m.draft.seq.length || m.draft.baseA || m.draft.baseB);
   const goLabel = live ? `計分中 ${draftScore(m.draft, 'A')}:${draftScore(m.draft, 'B')}` : '▶ 計分';
   return `
-    <section class="match ${hasDuplicate(m) ? 'bad' : ''}" data-r="${ri}" data-m="${mi}">
-      <div class="m-head"><span class="m-no">第 ${mi + 1} 場</span><button class="btn small go ${live ? 'live' : ''}" data-act="open-board" data-mid="${m.id}">${goLabel}</button><span class="m-rest">${rest.length ? '休息 ' + esc(rest.join('、')) : ''}</span><button class="x" data-act="del-match" data-r="${ri}" data-m="${mi}" aria-label="刪除此場">✕</button></div>
+    <section class="match ${hasDuplicate(m) ? 'bad' : ''} ${isCur ? 'current' : ''}" data-r="${ri}" data-m="${mi}" data-mid="${m.id}">
+      <div class="m-head"><span class="m-no">第 ${mi + 1} 場</span><button class="btn small go ${live || isCur ? 'live' : ''}" data-act="open-board" data-mid="${m.id}">${goLabel}</button><span class="m-rest">${rest.length ? '休息 ' + esc(rest.join('、')) : ''}</span><button class="x" data-act="del-match" data-r="${ri}" data-m="${mi}" aria-label="刪除此場">✕</button></div>
       <div class="team ${done && m.scoreA > m.scoreB ? 'win' : ''}" data-side="A"><div class="pls">${sel('teamA', 0)}${sel('teamA', 1)}</div>${score('A', m.scoreA)}</div>
       <div class="vs"><span>VS</span></div>
       <div class="team ${done && m.scoreB > m.scoreA ? 'win' : ''}" data-side="B"><div class="pls">${sel('teamB', 0)}${sel('teamB', 1)}</div>${score('B', m.scoreB)}</div>
@@ -124,6 +126,14 @@ function roundDone(r) { return r.matches.length > 0 && r.matches.every(isComplet
 const evRow = (e) => `
   <div class="evt"><span class="ic">🎭</span><div class="main"><div class="tx">${evText(e)}</div><span class="tm">${esc(e.time)}</span></div>
   <button class="x" data-act="del-event" data-id="${e.id}" aria-label="刪除事件">✕</button></div>`;
+
+/** 浮動按鈕的主要動作:還有沒打完的場次 → 計分;都打完了 → 下一輪 */
+function fabMain(s) {
+  const cur = currentMatch(s);
+  return cur
+    ? `<button class="btn primary" id="nextBtn" data-act="open-board" data-mid="${cur.id}">▶ 計分</button>`
+    : '<button class="btn primary" id="nextBtn" data-act="next-round">➕ 下一輪</button>';
+}
 
 function viewPlay(s) {
   const last = s.rounds.length - 1;
@@ -149,24 +159,28 @@ function viewPlay(s) {
         ${ri === last ? `<button class="add-match" data-act="add-match" data-r="${ri}">＋ 加一場</button>` : ''}
       </details>`;
     }).join('')}
+    <button class="add-match" data-act="next-round">➕ 生成下一輪</button>
     <div class="fab" role="toolbar" aria-label="操作">
       <button class="btn" data-act="open-event">🎭 事件</button>
-      <button class="btn primary" id="nextBtn" data-act="next-round">➕ 下一輪</button>
+      ${fabMain(s)}
       <button class="btn" data-act="finish">🏁 結算</button>
     </div>
     <dialog id="evDlg">
-      <h3>記錄特殊事件</h3>
+      <h3 id="evTitle" tabindex="-1">記錄特殊事件</h3>
+      <div class="dlg-cols"><div>
       <div class="lbl" style="margin-top:0">相關的人(可複選,可不選)</div>
       <div class="chips" id="evPlayers">${s.players.map((p) => `<span class="chip" data-act="ev-toggle" data-n="${esc(p)}">${esc(p)}</span>`).join('')}</div>
       <div class="lbl">快速選擇</div>
       <div class="chips">${EVENT_TEMPLATES.map((t) => `<span class="chip" data-act="ev-tpl" data-t="${esc(t)}">${esc(t)}</span>`).join('')}</div>
-      <div class="lbl">內容</div>
+      </div><div>
+      <div class="lbl" style="margin-top:0">內容</div>
       <textarea id="evText" placeholder="發生了什麼好笑的事?"></textarea>
       <div class="lbl">插入位置</div>
       <select id="evAfter">
         <option value="">最前面(第一場之前)</option>
         ${flat.map((x) => `<option value="${x.id}">第 ${x.ri + 1} 輪 第 ${x.mi + 1} 場 之後</option>`).join('')}
       </select>
+      </div></div>
       <div class="actions"><button class="btn" data-act="ev-cancel">取消</button><button class="btn primary" data-act="ev-save">記錄</button></div>
     </dialog>`;
 }
@@ -198,7 +212,7 @@ function viewSummary(s) {
       <div class="stats">
         <div><b>${s.players.length}</b><span>人</span></div>
         <div><b>${st.matches.length}</b><span>場</span></div>
-        <div><b>${dur == null ? '–' : esc(fmtDuration(dur))}</b><span>時長</span></div>
+        <div><b>${dur == null ? '–' : esc(fmtDurationShort(dur))}</b><span>時長</span></div>
       </div>
       <div class="when">${esc(s.startTime)} 開始${s.endTime ? ` · ${esc(settledLabel(s))} 結算` : ''}</div>
       <div class="page-tag"><span>${esc(tab.page)}</span></div>
@@ -215,17 +229,30 @@ function viewSummary(s) {
     </div>`;
 }
 
+const TCOLORS = ['#0f9d7a', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
+/** 把稱號平均分到兩欄(依預估高度),避免卡片被相鄰的高卡片撐出空白 */
+function titleCols(titles) {
+  const cols = [[], []];
+  const h = [0, 0];
+  titles.forEach((t, i) => {
+    const k = h[0] <= h[1] ? 0 : 1;
+    cols[k].push(`
+      <div class="tcard" style="--c:${TCOLORS[i % TCOLORS.length]}">
+        <div class="hd"><span class="ic">${t.icon}</span><span class="nm">${esc(t.name)}</span></div>
+        ${t.items.map((x) => `<div class="who"><span>${esc(x.label)}</span><i>${esc(x.note)}</i></div>`).join('')}
+      </div>`);
+    h[k] += 1.7 + t.items.length * 1.1;
+  });
+  return cols.map((c) => `<div class="tcol">${c.join('')}</div>`).join('');
+}
+
 /* 第 1 頁:稱號 & 事件 */
 function pageTitles(s) {
   const titles = computeTitles(s);
   const events = orderEvents(s);
   return `
     <div class="sec"><h2>今日稱號</h2><span>${titles.length} 項</span></div>
-    ${titles.length ? `<div class="tlist">${titles.map((t) => `
-      <div class="tcard">
-        <div class="hd"><span class="ic">${t.icon}</span><span class="nm">${esc(t.name)}</span></div>
-        ${t.items.map((i) => `<div class="who"><span>${esc(i.label)}</span><i>${esc(i.note)}</i></div>`).join('')}
-      </div>`).join('')}</div>` : '<div class="panel empty">還沒有完成的比賽,沒有稱號可以頒發</div>'}
+    ${titles.length ? `<div class="tlist">${titleCols(titles)}</div>` : '<div class="panel empty">還沒有完成的比賽,沒有稱號可以頒發</div>'}
     <div class="sec"><h2>今日特殊事件</h2><span>${events.length} 則</span></div>
     ${events.length ? `<div class="evlist">${events.map((e) => `<div class="e"><span class="tm">${esc(e.time)}</span><span>${evText(e)}</span></div>`).join('')}</div>` : '<div class="panel empty">今天風平浪靜,沒有特殊事件</div>'}`;
 }
@@ -327,7 +354,14 @@ function render() {
   window.scrollTo(0, bmatch ? 0 : y);
   lastRoute = hash;
   if (bmatch) patchBoard();
-  else if (m && !m[2]) patchLive(getSession(m[1]));
+  else if (m && !m[2]) {
+    patchLive(getSession(m[1]));
+    if (focusNext) {
+      focusNext = false;
+      const cur = currentMatch(getSession(m[1]));
+      app.querySelector(`.match[data-mid="${cur && cur.id}"]`)?.scrollIntoView({ block: 'center' });
+    }
+  }
 }
 
 /** 輸入比分時只更新樣式與按鈕狀態,不重繪(避免鍵盤收起) */
@@ -346,6 +380,13 @@ function patchLive(s) {
       p.classList.toggle('done', roundDone(r));
     }
   });
+  const nb = document.getElementById('nextBtn');
+  if (nb) {
+    const cur = currentMatch(s);
+    nb.dataset.act = cur ? 'open-board' : 'next-round';
+    if (cur) nb.dataset.mid = cur.id; else delete nb.dataset.mid;
+    nb.textContent = cur ? '▶ 計分' : '➕ 下一輪';
+  }
   patchPets(s);
   const subline = document.getElementById('subline');
   if (subline) subline.textContent = `${s.startTime} 開始 · ${s.players.length} 人 · 已完成 ${doneCount(s)} 場`;
@@ -357,6 +398,7 @@ function patchLive(s) {
 /* ---------- 計分板 ---------- */
 let board = null; // { sid, mid, baseA, baseB, seq, flip, wasComplete, dirty }
 let boardFrom = null;
+let focusNext = false; // 完成一場後回到對戰頁:把下一場捲到畫面中央
 let wakeLock = null;
 
 const draftScore = (d, side) => (side === 'A' ? d.baseA : d.baseB) + d.seq.filter((x) => x === side).length;
@@ -625,6 +667,7 @@ const actions = {
     document.getElementById('evText').value = '';
     document.getElementById('evAfter').value = defaultAfterId(getSession(sid())) ?? '';
     document.getElementById('evDlg').showModal();
+    document.getElementById('evTitle').focus(); // 不自動叫出鍵盤(橫式時鍵盤會蓋掉選項)
   },
   'ev-toggle': (el) => el.classList.toggle('on'),
   'ev-tpl': (el) => { const t = document.getElementById('evText'); t.value = el.dataset.t; t.focus(); },
@@ -677,6 +720,7 @@ const actions = {
     persist();
     const back = boardFrom || `#/s/${board.sid}`;
     board = null;
+    focusNext = !back.endsWith('/summary');
     go(back);
     toast(`已記錄 ${A} : ${B}`);
   },
@@ -783,6 +827,17 @@ app.addEventListener('toggle', (e) => {
   if (!rid) return;
   e.target.open ? openRounds.add(rid) : openRounds.delete(rid);
 }, true);
+
+let lastY = 0;
+window.addEventListener('scroll', () => {
+  const fab = document.querySelector('.fab');
+  if (!fab) return;
+  const y = window.scrollY;
+  const nearBottom = window.innerHeight + y >= document.body.scrollHeight - 160;
+  if (y > lastY + 6 && y > 80 && !nearBottom) fab.classList.add('hide');
+  else if (y < lastY - 6 || nearBottom || y <= 80) fab.classList.remove('hide');
+  lastY = y;
+}, { passive: true });
 
 window.addEventListener('hashchange', render);
 render();

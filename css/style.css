@@ -87,15 +87,19 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .round > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: baseline; padding: 14px 2px 8px; }
 .round > summary::-webkit-details-marker { display: none; }
 .round > summary b { font-size: 18px; }
+.round > summary b::before { content: '▸'; display: inline-block; width: 1.1em; color: var(--sub); transition: transform .15s; }
+.round[open] > summary b::before { transform: rotate(90deg); }
 .round > summary .prog { font-size: 13px; color: var(--sub); }
 .round > summary .prog.done { color: var(--accent); font-weight: 600; }
 
 .match { background: var(--card); border: 1px solid var(--line); border-radius: 0; margin-bottom: 8px; padding-bottom: 12px; }
 .match.bad { border-color: var(--danger); }
-.m-head { display: flex; align-items: center; gap: 8px; padding: 6px 4px 6px 12px; min-height: 40px; }
-.m-no { font-weight: 700; font-size: 14px; }
-.m-rest { flex: 1; text-align: right; font-size: 13px; color: var(--sub); min-width: 0; }
-.m-head .x { background: none; border: 0; color: var(--sub); width: 36px; height: 36px; font-size: 16px; cursor: pointer; }
+.match.current { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.m-head { display: flex; flex-wrap: wrap; align-items: center; padding: 4px 4px 2px 12px; min-height: 40px; }
+.m-no { font-weight: 700; font-size: 14px; order: 1; }
+.m-rest { order: 4; flex: 1 0 100%; text-align: left; font-size: 12.5px; color: var(--sub); min-width: 0; padding: 0 8px 4px 0; }
+.m-rest:empty { display: none; }
+.m-head .x { background: none; border: 0; color: var(--sub); width: 40px; height: 40px; font-size: 16px; cursor: pointer; order: 3; margin-left: auto; }
 .team { display: flex; gap: 8px; padding: 0 12px; }
 .team .pls { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; min-width: 0; }
 .team select { background: var(--bg); border-color: transparent; font-weight: 600; font-size: 16px; padding: 0 6px 0 10px; text-overflow: ellipsis; }
@@ -117,22 +121,25 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .evt .main { flex: 1; min-width: 0; }
 .evt .tx { color: var(--ink); }
 .evt .tm { display: block; font-size: 12px; color: var(--note-ink); opacity: .8; }
-.evt .x { background: none; border: 0; color: var(--note-ink); width: 32px; height: 28px; cursor: pointer; flex: none; }
+.evt .x { background: none; border: 0; color: var(--note-ink); width: 40px; height: 36px; cursor: pointer; flex: none; margin: -4px 0; }
 
 /* 浮動操作鈕(右下角,不是整條底欄) */
 .fab { position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 8px; z-index: 6; }
+.fab { transition: transform .2s ease, opacity .2s ease; }
+.fab.hide { transform: translateY(170%); opacity: 0; pointer-events: none; }
 .fab .btn { min-height: 44px; padding: 0 16px; box-shadow: 0 4px 14px rgba(0, 0, 0, .2); }
 
 /* ---------- 結算 ---------- */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--card); border: 1px solid var(--line); border-radius: 0; }
 .stats > div { padding: 12px 6px; text-align: center; border-left: 1px solid var(--line); }
 .stats > div:first-child { border-left: 0; }
-.stats b { display: block; font-size: 22px; line-height: 1.2; }
+.stats b { display: block; font-size: clamp(17px, 5.2vw, 22px); line-height: 1.25; white-space: nowrap; }
 .stats span { font-size: 12px; color: var(--sub); }
 .when { font-size: 13px; color: var(--sub); margin-top: 8px; text-align: center; }
 .date-h { font-size: 22px; padding: 6px 0 12px; text-align: center; }
 
-.tlist { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tlist { display: flex; gap: 8px; align-items: flex-start; }
+.tcol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .tcard { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--c, var(--accent)); border-radius: 0; padding: 12px; min-width: 0; }
 .tcard:nth-child(5n+1) { --c: #0f9d7a; }
 .tcard:nth-child(5n+2) { --c: #3b82f6; }
@@ -152,7 +159,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .evlist .tm { color: var(--sub); font-size: 13px; width: 40px; flex: none; padding-top: 1px; }
 
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; background: var(--card); border: 1px solid var(--line); }
-th, td { padding: 11px 6px; text-align: center; border-bottom: 1px solid var(--line); }
+th, td { padding: 11px 8px; text-align: center; border-bottom: 1px solid var(--line); }
 th { font-size: 12px; color: var(--sub); font-weight: 700; cursor: pointer; white-space: nowrap; background: var(--bg); }
 th.on { color: var(--accent); }
 td:first-child, th:first-child { text-align: left; font-weight: 700; padding-left: 12px; }
@@ -216,8 +223,12 @@ dialog .actions .btn { flex: 1; }
 /* 對戰頁:名字旁的寵物 */
 .pcell { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .pcell select { flex: 1; min-width: 0; }
-.pet-slot { position: relative; width: 34px; height: 34px; flex: none; }
+.pet-slot { position: relative; width: 30px; height: 30px; flex: none; }
 .pet-slot:empty { display: none; }
+.pet-slot .pet { width: 30px !important; height: 30px !important; }
+.pcell select { font-size: 15.5px; padding: 0 2px 0 8px; }
+/* 小尺寸的寵物只留表情與基本特效,避免光環/彩紙溢出到旁邊的字 */
+.pet-slot .pet .aura, .pet-slot .pet .confetti, .nm-cell .pet .aura, .nm-cell .pet .confetti, .chip .pet .aura, .chip .pet .confetti { display: none; }
 .pet-slot.fx-up::after, .pet-slot.fx-down::after { position: absolute; right: -6px; top: -8px; font-size: 14px; line-height: 1; animation: pet-fx 1.5s ease-out forwards; pointer-events: none; }
 .pet-slot.fx-up::after { content: '💖'; }
 .pet-slot.fx-down::after { content: '💧'; }
@@ -230,8 +241,9 @@ dialog .actions .btn { flex: 1; }
 .pet-opt .pet { width: 38px !important; height: 38px !important; }
 .pet-opt.on { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 700; }
 .chip.static { cursor: default; display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 6px; }
-.chip .chip-pet { display: inline-flex; cursor: pointer; }
-.chip .x { padding: 4px 6px 4px 8px; cursor: pointer; opacity: .7; }
+.chip .chip-pet { display: inline-flex; cursor: pointer; padding: 2px; margin: -2px; }
+.chip .chip-pet .pet { width: 30px !important; height: 30px !important; }
+.chip .x { padding: 8px 10px 8px 12px; margin: -4px -6px -4px 0; cursor: pointer; opacity: .7; }
 dialog .pet-grid { grid-template-columns: repeat(4, 1fr); }
 
 /* 結算:戰績表中的寵物 */
@@ -274,7 +286,7 @@ dialog .pet-grid { grid-template-columns: repeat(4, 1fr); }
 .rec-team.win .sc { color: var(--accent); }
 
 /* 對戰頁:計分入口 */
-.m-head .go { min-height: 30px; padding: 0 12px; font-size: 13px; border-color: var(--accent); color: var(--accent); }
+.m-head .go { min-height: 36px; padding: 0 14px; font-size: 13px; border-color: var(--accent); color: var(--accent); order: 2; margin-left: 10px; }
 .m-head .go.live { background: var(--accent); color: var(--accent-ink); }
 .rec { cursor: pointer; }
 .rec:active { background: var(--bg); }
@@ -286,7 +298,7 @@ dialog .pet-grid { grid-template-columns: repeat(4, 1fr); }
 html.lock, html.lock body { overflow: hidden; overscroll-behavior: none; }
 .board { position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: 1fr auto 1fr; background: var(--bg);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  touch-action: manipulation; -webkit-user-select: none; user-select: none; --ps: clamp(36px, 7.5vh, 76px); }
+  touch-action: manipulation; -webkit-user-select: none; user-select: none; --ps: clamp(32px, 6.8vh, 76px); }
 .b-a { order: 1; --tc: var(--accent); background: var(--soft); }
 .b-mid { order: 2; }
 .b-b { order: 3; --tc: var(--blue); background: var(--blue-soft); }
@@ -294,19 +306,19 @@ html.lock, html.lock body { overflow: hidden; overscroll-behavior: none; }
 .board.flip .b-b { order: 1; }
 .b-side { display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding: 4px 12px; cursor: pointer; min-height: 0; overflow: hidden; position: relative; }
 .b-side:active { filter: brightness(.96); }
-.b-pets { display: flex; gap: 6px; align-items: flex-end; justify-content: center; min-height: var(--ps); position: relative; }
-.b-pets:empty { min-height: 0; }
+.b-pets { display: flex; gap: 6px; align-items: flex-end; justify-content: center; min-height: var(--ps); padding-top: calc(var(--ps) * .5); position: relative; }
+.b-pets:empty { min-height: 0; padding: 0; }
 .board .pet { width: var(--ps) !important; height: var(--ps) !important; }
 .b-pets.fx-up::after, .b-pets.fx-down::after { position: absolute; right: -8px; top: -10px; font-size: 20px; line-height: 1; animation: pet-fx 1.5s ease-out forwards; pointer-events: none; }
 .b-pets.fx-up::after { content: '💖'; }
 .b-pets.fx-down::after { content: '💧'; }
 .b-names { font-size: clamp(15px, 3vh, 22px); font-weight: 800; text-align: center; overflow-wrap: anywhere; line-height: 1.2; }
-.b-score { font-size: min(19vh, 40vw); font-weight: 800; line-height: 1; color: var(--tc); font-variant-numeric: tabular-nums; }
+.b-score { font-size: min(16vh, 38vw); font-weight: 800; line-height: 1; color: var(--tc); font-variant-numeric: tabular-nums; }
 .b-score.pop { animation: b-pop .28s ease-out; }
 @keyframes b-pop { 0% { transform: scale(1.22); } 100% { transform: scale(1); } }
 .b-streak.loss { color: var(--sub); }
 .b-streak { min-height: 20px; font-weight: 700; font-size: 14px; color: var(--tc); line-height: 1.2; }
-.b-minus { border: 1px solid var(--line2); background: var(--card); border-radius: 999px; min-width: 56px; min-height: 34px; font-weight: 700; cursor: pointer; color: var(--sub); }
+.b-minus { border: 1px solid var(--line2); background: var(--card); border-radius: 999px; min-width: 60px; min-height: 40px; font-weight: 700; cursor: pointer; color: var(--sub); }
 .b-mid { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 6px 8px; background: var(--card); border-block: 1px solid var(--line2); }
 .b-btn { width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line2); background: var(--card); font-size: 22px; cursor: pointer; display: grid; place-items: center; flex: none; }
 .b-btn:active { transform: scale(.94); }
@@ -315,7 +327,7 @@ html.lock, html.lock body { overflow: hidden; overscroll-behavior: none; }
 .b-btn.done:disabled { opacity: .35; }
 .b-vs { background: var(--ink); color: var(--card); font-weight: 800; padding: 2px 12px; letter-spacing: 1px; font-size: 13px; }
 @media (orientation: landscape) {
-  .board { grid-template-rows: none; grid-template-columns: 1fr auto 1fr; --ps: clamp(40px, 15vh, 80px); }
+  .board { grid-template-rows: none; grid-template-columns: 1fr auto 1fr; --ps: clamp(36px, 13vh, 76px); }
   .b-mid { flex-direction: column; border-block: 0; border-inline: 1px solid var(--line2); padding: 8px 10px; gap: 8px; }
   .b-score { font-size: min(40vh, 21vw); }
   .b-btn { width: 46px; height: 46px; }
@@ -329,16 +341,19 @@ html.lock, html.lock body { overflow: hidden; overscroll-behavior: none; }
   #app { max-width: 980px; }
   .round-grid, .rec-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; align-items: start; }
   .round-grid > .evt { grid-column: 1 / -1; }
-  .tlist { grid-template-columns: repeat(3, 1fr); }
   .pet-grid { grid-template-columns: repeat(12, 1fr); }
   .pet-opt .pet { width: 34px !important; height: 34px !important; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
-  .top { padding: 4px 0; }
-  .top h1 { font-size: 17px; }
+  .top { padding: 2px 0; }
+  .top h1 { font-size: 16px; }
+  .top .sub { font-size: 12px; }
+  .round { margin-top: 0; }
+  .round > summary { padding: 4px 2px 2px; }
+  .round > summary b { font-size: 15px; }
+  .round > summary .prog { font-size: 12px; }
   .icon-btn { width: 40px; height: 40px; }
   .sec { margin: 14px 0 6px; }
-  .round > summary { padding: 8px 2px 4px; }
   .m-head { min-height: 34px; }
   .team select, .team .score { min-height: 42px; }
   .vs { height: 24px; }
@@ -346,4 +361,38 @@ html.lock, html.lock body { overflow: hidden; overscroll-behavior: none; }
   .home-head { padding: 12px 0 10px; }
   #app { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   dialog { max-height: 94vh; }
+}
+
+.add-match[data-act="next-round"] { border-style: solid; border-color: var(--accent); color: var(--accent); margin-top: 0; }
+
+/* ---------- 事件對話框:橫式雙欄 ---------- */
+.dlg-cols { display: block; }
+dialog h3:focus { outline: none; }
+
+/* ---------- 橫式:對戰卡片改成「A隊 比分 VS 比分 B隊」一行,一次看到更多場 ---------- */
+@media (orientation: landscape) and (min-width: 560px) and (max-width: 999px) {
+  .round-grid { display: block; }
+  .match { display: grid; grid-template-columns: minmax(0, 1fr) 60px 40px 60px minmax(0, 1fr); align-items: center; column-gap: 6px; padding: 0 12px 10px; margin-bottom: 8px; }
+  .m-head { grid-column: 1 / -1; padding-left: 0; padding-right: 0; min-height: 36px; flex-wrap: nowrap; }
+  .m-rest { order: 2; flex: 1; text-align: right; padding: 0 10px; min-height: 0; }
+  .m-head .x { margin-left: 0; }
+  .team { display: contents; }
+  .team[data-side="A"] .pls { grid-column: 1; grid-row: 2; }
+  .team[data-side="A"] .score { grid-column: 2; grid-row: 2; width: 60px; }
+  .vs { grid-column: 3; grid-row: 2; height: auto; margin: 0; }
+  .vs::before { display: none; }
+  .vs span { padding: 1px 6px; font-size: 11px; line-height: 18px; }
+  .team[data-side="B"] .score { grid-column: 4; grid-row: 2; width: 60px; }
+  .team[data-side="B"] .pls { grid-column: 5; grid-row: 2; }
+  .warn { grid-column: 1 / -1; padding-left: 0; }
+}
+@media (orientation: landscape) and (min-width: 560px) {
+  dialog { max-width: 820px; }
+  .dlg-cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  dialog .lbl { margin: 10px 0 4px; }
+}
+
+/* 橫式(含寬度不到 700 的手機):容器不再限制在 520,卡片才有空間 */
+@media (orientation: landscape) and (min-width: 560px) {
+  #app { max-width: 980px; }
 }

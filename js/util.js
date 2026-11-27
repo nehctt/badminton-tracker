@@ -34,3 +34,11 @@ export function fmtDuration(min) {
   const m = min % 60;
   return h ? `${h} 小時 ${m} 分` : `${m} 分鐘`;
 }
+
+/** 精簡版時長(用在窄欄位,避免換行):2小時10分 / 45分鐘 */
+export function fmtDurationShort(min) {
+  if (min == null) return '';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h}小時${m}分` : `${m}分鐘`;
+}
